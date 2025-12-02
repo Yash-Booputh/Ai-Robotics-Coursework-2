@@ -78,7 +78,7 @@ class VisionSystem:
 
     def start_camera(self, camera_id: int = CAMERA_ID) -> bool:
         """
-        Start the camera
+        Start the camera with optimized settings
 
         Args:
             camera_id: Camera device ID (default: 0)
@@ -100,12 +100,17 @@ class VisionSystem:
                 self.logger.error(f"Failed to open camera {camera_id}")
                 return False
 
-            # Configure camera
+            # Configure camera (based on Yahboom settings)
+            self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
             self.camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-            self.camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer
-            self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+
+            # Optimize camera settings for detection
+            self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 30)     # Brightness -64 to 64
+            self.camera.set(cv2.CAP_PROP_CONTRAST, 50)       # Contrast -64 to 64
+            self.camera.set(cv2.CAP_PROP_EXPOSURE, 156)      # Exposure 1.0 - 5000
+            self.camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)      # Minimal buffer for low latency
 
             # Test read
             ret, frame = self.camera.read()
@@ -251,6 +256,33 @@ class VisionSystem:
             return None, None
 
         return self.detect_ingredient(frame)
+
+    def detect_current_ingredient(self, confidence_threshold: float = None) -> Optional[str]:
+        """
+        Detect ingredient in current camera view (single attempt)
+
+        Args:
+            confidence_threshold: Minimum confidence (uses default if None)
+
+        Returns:
+            Detected ingredient class name or None if no detection
+        """
+        if confidence_threshold is None:
+            confidence_threshold = YOLO_CONFIDENCE_THRESHOLD
+
+        frame, detection = self.capture_and_detect()
+
+        if detection is None:
+            return None
+
+        detected_class = detection['class_name']
+        confidence = detection['confidence']
+
+        if confidence >= confidence_threshold:
+            self.logger.info(f"Detected: {detected_class} ({confidence:.2f})")
+            return detected_class
+
+        return None
 
     def verify_ingredient(self, expected_ingredient: str, max_attempts: int = 3) -> bool:
         """

@@ -19,7 +19,9 @@ __all__ = [
     'PIZZA_RECIPES', 'INGREDIENT_INFO',
     'get_pizza_list', 'get_pizza_info', 'get_pizza_ingredients',
 
-    # Positions
-    'HOME_POSITION', 'DELIVERY_POSITION', 'INGREDIENT_POSITIONS',
-    'get_ingredient_position', 'validate_ingredient_position'
+    # Positions - Scout Mode
+    'HOME_POSITION', 'DELIVERY_POSITION', 'SLOT_POSITIONS',
+    'INGREDIENT_NAMES',
+    'get_slot_position', 'get_all_slot_names', 'validate_slot_name',
+    'get_all_ingredient_names'
 ]

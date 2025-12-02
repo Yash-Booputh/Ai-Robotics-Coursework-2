@@ -10,6 +10,7 @@ from typing import List, Optional, Callable
 from .dofbot_controller import DofbotController
 from .vision_system import VisionSystem
 from config.recipes import get_pizza_ingredients, get_ingredient_display_name
+from config.positions import get_all_slot_names
 
 
 class PickSequence:
@@ -101,9 +102,62 @@ class PickSequence:
 
         return True
 
+    def scout_and_find_ingredient(self, ingredient_name: str) -> Optional[str]:
+        """
+        Scout all slots to find the specified ingredient
+
+        Args:
+            ingredient_name: Name of ingredient to find
+
+        Returns:
+            slot_name if found, None otherwise
+        """
+        display_name = get_ingredient_display_name(ingredient_name)
+        self._update_status(f"🔍 Scouting for {display_name}...", "info")
+
+        all_slots = get_all_slot_names()
+
+        # First pass: Scout with top-down view
+        for slot_name in all_slots:
+            self._update_status(f"  Checking {slot_name} (top view)...", "info")
+
+            # Move to scout position
+            if not self.robot.scout_slot(slot_name, angle_mode="top"):
+                self.logger.warning(f"Failed to move to {slot_name}")
+                continue
+
+            # Detect ingredient
+            detected_ingredient = self.vision.detect_current_ingredient()
+
+            if detected_ingredient and detected_ingredient == ingredient_name:
+                self._update_status(f"✅ Found {display_name} at {slot_name}!", "success")
+                return slot_name
+
+        # Second pass: If not found, try 45° angle view
+        self._update_status(f"  🔄 Trying angled view for better detection...", "info")
+
+        for slot_name in all_slots:
+            self._update_status(f"  Checking {slot_name} (angle view)...", "info")
+
+            # Move to angled scout position
+            if not self.robot.scout_slot(slot_name, angle_mode="angle"):
+                self.logger.warning(f"Failed to move to {slot_name} (angle)")
+                continue
+
+            # Detect ingredient
+            detected_ingredient = self.vision.detect_current_ingredient()
+
+            if detected_ingredient and detected_ingredient == ingredient_name:
+                self._update_status(f"✅ Found {display_name} at {slot_name} (angle view)!", "success")
+                return slot_name
+
+        # Not found
+        self._update_status(f"❌ Could not find {display_name} in any slot", "error")
+        return None
+
     def pick_next_ingredient(self) -> bool:
         """
-        Pick the next ingredient in the sequence
+        Pick the next ingredient in the sequence using scout mode
 
         Returns:
             bool: True if ingredient picked successfully
@@ -121,40 +175,31 @@ class PickSequence:
         display_name = get_ingredient_display_name(ingredient)
 
         self._update_status(
-            f"📦 Picking {display_name} ({self.current_ingredient_index + 1}/{self.total_ingredients})",
+            f"📦 Finding and picking {display_name} ({self.current_ingredient_index + 1}/{self.total_ingredients})",
             "info"
         )
 
         try:
-            # Step 1: Verify ingredient with camera before moving
-            self._update_status(f"👁️  Verifying {display_name}...", "info")
+            # Step 1: Scout all slots to find the ingredient
+            found_slot = self.scout_and_find_ingredient(ingredient)
 
-            # Wait a moment for camera to stabilize
-            time.sleep(0.3)
-
-            # Verify ingredient (robot should be positioned so camera can see shelf)
-            verified = self.vision.verify_ingredient(ingredient, max_attempts=3)
-
-            if not verified:
+            if found_slot is None:
                 self._update_status(
-                    f"❌ Wrong ingredient detected! Expected {display_name}",
+                    f"❌ {display_name} not found in any slot!",
                     "error"
                 )
-                self._update_status("Please fix the shelf arrangement and try again", "error")
                 self.is_running = False
                 return False
 
-            self._update_status(f"✅ {display_name} verified", "success")
-
-            # Step 2: Move to ingredient and pick it up
-            self._update_status(f"🤖 Moving to pick {display_name}...", "info")
-            success = self.robot.move_to_ingredient(ingredient)
+            # Step 2: Grab the ingredient from the found slot
+            self._update_status(f"🤖 Grabbing {display_name} from {found_slot}...", "info")
+            success = self.robot.grab_from_slot(found_slot)
 
             if not success:
-                self._update_status(f"❌ Failed to pick {display_name}", "error")
+                self._update_status(f"❌ Failed to grab {display_name}", "error")
                 return False
 
-            self._update_status(f"✅ Picked {display_name}", "success")
+            self._update_status(f"✅ Grabbed {display_name}", "success")
 
             # Step 3: Deliver to basket
             self._update_status(f"🚚 Delivering {display_name}...", "info")
@@ -164,7 +209,7 @@ class PickSequence:
                 self._update_status(f"❌ Failed to deliver {display_name}", "error")
                 return False
 
-            self._update_status(f"✅ {display_name} delivered", "success")
+            self._update_status(f"✅ {display_name} delivered to basket", "success")
 
             # Step 4: Return to home
             self.robot.move_to_home()
