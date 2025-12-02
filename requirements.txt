@@ -1,0 +1,20 @@
+# ChefMate Robot Assistant - Requirements
+# Python 3.8+
+
+# Computer Vision & AI
+opencv-python>=4.8.0
+ultralytics>=8.3.0
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# GUI
+# tkinter comes with Python, no need to install
+
+# Robot Control
+# Note: Arm_Lib should be installed separately from Yahboom
+# pip install Arm_Lib (or from provided package)
+
+# Utilities
+python-dateutil>=2.8.0
