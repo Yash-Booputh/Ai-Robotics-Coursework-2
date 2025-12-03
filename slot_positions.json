@@ -1,0 +1,68 @@
+{
+    "slot_1": {
+        "angles": {
+            "servo_1": 20,
+            "servo_2": 104,
+            "servo_3": 9,
+            "servo_4": 1,
+            "servo_5": 90,
+            "servo_6": 2
+        },
+        "timestamp": "2025-12-03 12:46:32"
+    },
+    "slot_2": {
+        "angles": {
+            "servo_1": 50,
+            "servo_2": 108,
+            "servo_3": 17,
+            "servo_4": 0,
+            "servo_5": 90,
+            "servo_6": 2
+        },
+        "timestamp": "2025-12-03 12:47:14"
+    },
+    "slot_3": {
+        "angles": {
+            "servo_1": 76,
+            "servo_2": 84,
+            "servo_3": 21,
+            "servo_4": 24,
+            "servo_5": 90,
+            "servo_6": 2
+        },
+        "timestamp": "2025-12-03 12:48:04"
+    },
+    "slot_4": {
+        "angles": {
+            "servo_1": 104,
+            "servo_2": 84,
+            "servo_3": 21,
+            "servo_4": 24,
+            "servo_5": 90,
+            "servo_6": 2
+        },
+        "timestamp": "2025-12-03 12:48:35"
+    },
+    "slot_5": {
+        "angles": {
+            "servo_1": 130,
+            "servo_2": 76,
+            "servo_3": 21,
+            "servo_4": 24,
+            "servo_5": 90,
+            "servo_6": 2
+        },
+        "timestamp": "2025-12-03 12:48:52"
+    },
+    "slot_6": {
+        "angles": {
+            "servo_1": 158,
+            "servo_2": 94,
+            "servo_3": 0,
+            "servo_4": 20,
+            "servo_5": 90,
+            "servo_6": 2
+        },
+        "timestamp": "2025-12-03 12:49:33"
+    }
+}
