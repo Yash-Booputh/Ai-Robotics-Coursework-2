@@ -40,11 +40,7 @@ env/
 logs/
 *.log
 
-# Models (too large for git)
-models/*.pt
-models/*.onnx
-models/*.tflite
-!models/.gitkeep
+
 
 # Output files
 output/
