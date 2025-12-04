@@ -1,0 +1,80 @@
+{
+    "slot_1": {
+        "angles": {
+            "servo_1": 111,
+            "servo_2": 31,
+            "servo_3": 106,
+            "servo_4": 61,
+            "servo_5": 79,
+            "servo_6": 158
+        },
+        "gripper_rotation": 79,
+        "gripper_close": 158,
+        "timestamp": "2025-12-04 13:35:27"
+    },
+    "slot_2": {
+        "angles": {
+            "servo_1": 91,
+            "servo_2": 31,
+            "servo_3": 102,
+            "servo_4": 66,
+            "servo_5": 89,
+            "servo_6": 174
+        },
+        "gripper_rotation": 89,
+        "gripper_close": 174,
+        "timestamp": "2025-12-04 13:36:43"
+    },
+    "slot_3": {
+        "angles": {
+            "servo_1": 73,
+            "servo_2": 33,
+            "servo_3": 94,
+            "servo_4": 80,
+            "servo_5": 93,
+            "servo_6": 136
+        },
+        "gripper_rotation": 93,
+        "gripper_close": 136,
+        "timestamp": "2025-12-04 13:38:30"
+    },
+    "slot_4": {
+        "angles": {
+            "servo_1": 109,
+            "servo_2": 43,
+            "servo_3": 72,
+            "servo_4": 54,
+            "servo_5": 97,
+            "servo_6": 158
+        },
+        "gripper_rotation": 97,
+        "gripper_close": 158,
+        "timestamp": "2025-12-04 13:40:01"
+    },
+    "slot_5": {
+        "angles": {
+            "servo_1": 91,
+            "servo_2": 71,
+            "servo_3": 18,
+            "servo_4": 84,
+            "servo_5": 91,
+            "servo_6": 156
+        },
+        "gripper_rotation": 91,
+        "gripper_close": 156,
+        "timestamp": "2025-12-04 13:41:26"
+    },
+    "slot_6": {
+        "angles": {
+            "servo_1": 73,
+            "servo_2": 35,
+            "servo_3": 90,
+            "servo_4": 42,
+            "servo_5": 91,
+            "servo_6": 168
+        },
+        "gripper_rotation": 91,
+        "gripper_close": 168,
+        "timestamp": "2025-12-04 13:42:28"
+    }
+}

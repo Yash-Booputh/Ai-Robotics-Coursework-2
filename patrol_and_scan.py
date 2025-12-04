@@ -51,7 +51,7 @@ MODEL_PATH = "models/best.onnx"
 
 # Robot configuration
 NUM_SERVOS = 6
-MOVE_SPEED = 300  # Movement speed for patrol
+MOVE_SPEED = 500  # Movement speed for patrol
 
 # Detection configuration
 CONFIDENCE_THRESHOLD = 0.5
