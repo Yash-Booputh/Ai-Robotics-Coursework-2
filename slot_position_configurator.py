@@ -38,7 +38,7 @@ MOVE_SPEEDS = {
 }
 
 # Object detection model paths
-MODEL_PATH = "best.onnx"  # ONNX model path
+MODEL_PATH = "models/best.onnx"  # ONNX model path
 CONFIDENCE_THRESHOLD = 0.5
 IOU_THRESHOLD = 0.4
 DETECTION_FRAME_SKIP = 2  # Run detection every N frames (1=every frame, 3=every 3rd frame)
@@ -276,14 +276,14 @@ class SlotConfigurator:
         self.detection_thread = None  # Detection thread instance
 
         print("\n" + "="*60)
-        print("CHECKING MODEL FILES")
+        print("CHECKING MODELS FILES")
         print("="*60)
 
         # Check for best.pt
-        if os.path.exists("best.pt"):
-            print("✓ best.pt found")
+        if os.path.exists("models/best.pt"):
+            print("✓ models/best.pt found")
         else:
-            print("✗ best.pt NOT found")
+            print("✗ models/best.pt NOT found")
 
         # Check for best.onnx
         if os.path.exists(MODEL_PATH):

@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 import json
 import os
+import time
 from datetime import datetime
 try:
     from pupil_apriltags import Detector
@@ -28,10 +29,27 @@ except ImportError:
     print("Install with: pip install pupil-apriltags")
     exit(1)
 
+try:
+    from Arm_Lib import Arm_Device
+    ARM_AVAILABLE = True
+except ImportError:
+    ARM_AVAILABLE = False
+    print("Warning: Arm_Lib not available. Robot arm control disabled.")
+
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+
+# Robot arm configuration
+NUM_SERVOS = 6
+ANGLE_STEP = 2        # Angle step per key press
+MOVE_SPEEDS = {
+    'slow': 500,
+    'normal': 300,
+    'fast': 150,
+    'instant': 50
+}
 
 # AprilTag Configuration
 TAG_FAMILY = "tag36h11"  # Standard family
@@ -42,18 +60,19 @@ ROW1_TAG_ID = 0
 ROW2_TAG_ID = 1
 
 # Shelf layout (6 cube slots in 2 rows, 3 columns)
+# Note: Ingredients are NOT pre-assigned - they will be detected dynamically with YOLO
 SLOTS = {
-    "R1C1": {"row": 1, "col": 1, "ingredient": "cheese"},
-    "R1C2": {"row": 1, "col": 2, "ingredient": "chicken"},
-    "R1C3": {"row": 1, "col": 3, "ingredient": "fresh_tomato"},
-    "R2C1": {"row": 2, "col": 1, "ingredient": "anchovies"},
-    "R2C2": {"row": 2, "col": 2, "ingredient": "basil"},
-    "R2C3": {"row": 2, "col": 3, "ingredient": "shrimp"},
+    "R1C1": {"row": 1, "col": 1},
+    "R1C2": {"row": 1, "col": 2},
+    "R1C3": {"row": 1, "col": 3},
+    "R2C1": {"row": 2, "col": 1},
+    "R2C2": {"row": 2, "col": 2},
+    "R2C3": {"row": 2, "col": 3},
 }
 
 # Physical measurements (in meters) - YOU WILL NEED TO MEASURE THESE
-CUBE_WIDTH = 0.08  # 80mm cube width (adjust to your actual cube size)
-CUBE_SPACING = 0.01  # 10mm spacing between cubes
+CUBE_WIDTH = 0.03 # 80mm cube width (adjust to your actual cube size)
+CUBE_SPACING = 0.06  # 10mm spacing between cubes
 
 # Camera intrinsic parameters (will use default, but calibration is better)
 # For better accuracy, run camera calibration separately
@@ -80,12 +99,39 @@ class ShelfCalibrator:
         self.camera_id = camera_id
         self.camera = None
 
+        # Initialize robot arm if available
+        self.arm = None
+        if ARM_AVAILABLE:
+            print("Initializing DOFBOT...")
+            self.arm = Arm_Device()
+            time.sleep(0.1)
+
+            # Initialize current servo angles
+            self.current_angles = {}
+            for i in range(NUM_SERVOS):
+                servo_id = i + 1
+                try:
+                    angle = self.arm.Arm_serial_servo_read(servo_id)
+                    self.current_angles[servo_id] = angle if angle is not None else 90
+                except:
+                    self.current_angles[servo_id] = 90
+                time.sleep(0.01)
+
+            # Movement settings
+            self.speed_mode = 'normal'
+            self.current_speed = MOVE_SPEEDS['normal']
+            self.angle_step = ANGLE_STEP
+            print("✓ Robot arm initialized")
+        else:
+            print("Robot arm not available - running in camera-only mode")
+
         # Initialize AprilTag detector
+        # Adjusted settings to reduce "more than one new minima" errors
         self.detector = Detector(
             families=TAG_FAMILY,
             nthreads=4,
-            quad_decimate=2.0,
-            quad_sigma=0.0,
+            quad_decimate=1.0,      # Reduced from 2.0 for better accuracy
+            quad_sigma=0.8,         # Increased from 0.0 for noise reduction
             refine_edges=1,
             decode_sharpening=0.25,
             debug=0
@@ -99,6 +145,9 @@ class ShelfCalibrator:
 
     def open_camera(self):
         """Open camera feed"""
+        # Fix Qt platform warning - force X11 instead of Wayland
+        os.environ['QT_QPA_PLATFORM'] = 'xcb'
+
         self.camera = cv2.VideoCapture(self.camera_id)
         if not self.camera.isOpened():
             raise RuntimeError("Failed to open camera")
@@ -114,6 +163,98 @@ class ShelfCalibrator:
         """Close camera feed"""
         if self.camera:
             self.camera.release()
+
+    def move_servo(self, servo_id, angle):
+        """Move a specific servo to an angle"""
+        if not self.arm:
+            return False
+        # Clamp angle to safe range (0-180)
+        angle = max(0, min(180, angle))
+        try:
+            self.arm.Arm_serial_servo_write(servo_id, angle, self.current_speed)
+            self.current_angles[servo_id] = angle
+            return True
+        except Exception as e:
+            print(f"Error moving servo {servo_id}: {e}")
+            return False
+
+    def adjust_servo(self, servo_id, delta):
+        """Adjust servo by delta amount"""
+        if not self.arm:
+            return
+        current = self.current_angles.get(servo_id, 90)
+        new_angle = current + delta
+        self.move_servo(servo_id, new_angle)
+
+    def change_speed(self, direction):
+        """Change movement speed"""
+        if not self.arm:
+            return
+        speeds = list(MOVE_SPEEDS.keys())
+        current_idx = speeds.index(self.speed_mode)
+
+        if direction == 'up' and current_idx < len(speeds) - 1:
+            current_idx += 1
+        elif direction == 'down' and current_idx > 0:
+            current_idx -= 1
+
+        self.speed_mode = speeds[current_idx]
+        self.current_speed = MOVE_SPEEDS[self.speed_mode]
+        print(f"Speed mode: {self.speed_mode.upper()} ({self.current_speed}ms)")
+
+    def adjust_step_size(self, delta):
+        """Adjust angle step size"""
+        if not self.arm:
+            return
+        self.angle_step = max(1, min(10, self.angle_step + delta))
+        print(f"Angle step size: {self.angle_step}°")
+
+    def display_arm_overlay(self, frame):
+        """Overlay servo angles on camera frame if arm is available"""
+        if not self.arm:
+            return frame
+
+        h, w = frame.shape[:2]
+        y_offset = 20
+
+        # Display servo angles on left side
+        for servo_id in range(1, NUM_SERVOS + 1):
+            angle = self.current_angles.get(servo_id, "N/A")
+            text = f"S{servo_id}:{angle:3}°"
+            cv2.putText(frame, text, (5, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+            y_offset += 18
+
+        # Display settings on right side
+        right_x = w - 120
+        y_offset = 20
+        cv2.putText(frame, f"Spd:{self.speed_mode[:3].upper()}", (right_x, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 165, 0), 1)
+        y_offset += 18
+        cv2.putText(frame, f"Step:{self.angle_step}°", (right_x, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 165, 0), 1)
+
+        return frame
+
+    def display_controls(self, frame):
+        """Display keyboard controls on frame"""
+        h, w = frame.shape[:2]
+
+        # Instructions at bottom
+        instructions = []
+        if self.arm:
+            instructions.extend([
+                "WASD/IKJLUO/P;:Move Servos",
+                "+/-:Step | []:Speed"
+            ])
+
+        y_offset = h - 40
+        for instruction in instructions:
+            cv2.putText(frame, instruction, (5, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 200, 200), 1)
+            y_offset += 16
+
+        return frame
 
     def detect_tags(self, gray_image):
         """Detect AprilTags in grayscale image"""
@@ -228,7 +369,8 @@ class ShelfCalibrator:
                 slot_positions[slot_name] = {
                     "reference_tag": ROW1_TAG_ID,
                     "offset": [offset_x, offset_y, offset_z],
-                    "ingredient": slot_data["ingredient"]
+                    "row": slot_data["row"],
+                    "col": slot_data["col"]
                 }
 
         # Calculate positions for Row 2 slots (relative to Tag 1)
@@ -245,7 +387,8 @@ class ShelfCalibrator:
                 slot_positions[slot_name] = {
                     "reference_tag": ROW2_TAG_ID,
                     "offset": [offset_x, offset_y, offset_z],
-                    "ingredient": slot_data["ingredient"]
+                    "row": slot_data["row"],
+                    "col": slot_data["col"]
                 }
 
         return slot_positions
@@ -262,6 +405,20 @@ class ShelfCalibrator:
         print("2. Press SPACE to capture and calibrate")
         print("3. Press 'q' to quit without saving")
         print("\nMake sure tags are clearly visible and well-lit!")
+
+        if self.arm:
+            print("\n" + "="*60)
+            print("KEYBOARD CONTROLS (Video Game Style)")
+            print("="*60)
+            print("  W/S         - Servo 1 (Base rotation)")
+            print("  A/D         - Servo 2 (Shoulder)")
+            print("  I/K         - Servo 3 (Elbow)")
+            print("  J/L         - Servo 4 (Wrist pitch)")
+            print("  U/O         - Servo 5 (Wrist roll)")
+            print("  P/;         - Servo 6 (Gripper)")
+            print("  +/-         - Adjust step size")
+            print("  [ / ]       - Slower / Faster speed")
+
         print("="*60 + "\n")
 
         self.open_camera()
@@ -280,25 +437,38 @@ class ShelfCalibrator:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
                 # Detect tags
-                detections = self.detect_tags(gray)
+                try:
+                    detections = self.detect_tags(gray)
+                except Exception as e:
+                    # Silently handle detection errors (e.g., "more than one new minima")
+                    detections = []
 
                 # Draw detections
                 display_frame = frame.copy()
                 self.draw_detections(display_frame, detections)
+
+                # Add arm overlay if available
+                display_frame = self.display_arm_overlay(display_frame)
+
+                # Add controls overlay
+                display_frame = self.display_controls(display_frame)
 
                 # Check which tags are detected
                 tags_detected = {d.tag_id for d in detections}
                 row1_visible = ROW1_TAG_ID in tags_detected
                 row2_visible = ROW2_TAG_ID in tags_detected
 
+                # Calculate status text position based on arm availability
+                status_y_start = 140 if self.arm else 30
+
                 # Display status
                 status_text = f"Row 1 Tag (ID {ROW1_TAG_ID}): {'✓ DETECTED' if row1_visible else '✗ NOT FOUND'}"
-                cv2.putText(display_frame, status_text, (10, 30),
+                cv2.putText(display_frame, status_text, (10, status_y_start),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                            (0, 255, 0) if row1_visible else (0, 0, 255), 2)
 
                 status_text = f"Row 2 Tag (ID {ROW2_TAG_ID}): {'✓ DETECTED' if row2_visible else '✗ NOT FOUND'}"
-                cv2.putText(display_frame, status_text, (10, 60),
+                cv2.putText(display_frame, status_text, (10, status_y_start + 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                            (0, 255, 0) if row2_visible else (0, 0, 255), 2)
 
@@ -323,16 +493,77 @@ class ShelfCalibrator:
                     print("\nCalibration cancelled")
                     break
 
-                elif key == ord(' ') and row1_visible and row2_visible:
-                    # Capture calibration
+                # === ROBOT ARM CONTROLS ===
+                # Servo 1 - Base rotation (W/S)
+                elif key == ord('w') or key == ord('W'):
+                    self.adjust_servo(1, self.angle_step)
+                elif key == ord('s') or key == ord('S'):
+                    self.adjust_servo(1, -self.angle_step)
+
+                # Servo 2 - Shoulder (A/D)
+                elif key == ord('a') or key == ord('A'):
+                    self.adjust_servo(2, self.angle_step)
+                elif key == ord('d') or key == ord('D'):
+                    self.adjust_servo(2, -self.angle_step)
+
+                # Servo 3 - Elbow (I/K)
+                elif key == ord('i') or key == ord('I'):
+                    self.adjust_servo(3, self.angle_step)
+                elif key == ord('k') or key == ord('K'):
+                    self.adjust_servo(3, -self.angle_step)
+
+                # Servo 4 - Wrist pitch (J/L)
+                elif key == ord('j') or key == ord('J'):
+                    self.adjust_servo(4, self.angle_step)
+                elif key == ord('l') or key == ord('L'):
+                    self.adjust_servo(4, -self.angle_step)
+
+                # Servo 5 - Wrist roll (U/O)
+                elif key == ord('u') or key == ord('U'):
+                    self.adjust_servo(5, self.angle_step)
+                elif key == ord('o') or key == ord('O'):
+                    self.adjust_servo(5, -self.angle_step)
+
+                # Servo 6 - Gripper (P/;)
+                elif key == ord('p') or key == ord('P'):
+                    self.adjust_servo(6, self.angle_step)
+                elif key == ord(';') or key == ord(':'):
+                    self.adjust_servo(6, -self.angle_step)
+
+                # Step size adjustment
+                elif key == ord('+') or key == ord('='):
+                    self.adjust_step_size(1)
+                elif key == ord('-') or key == ord('_'):
+                    self.adjust_step_size(-1)
+
+                # Speed adjustment
+                elif key == ord('[') or key == ord('{'):
+                    self.change_speed('down')
+                elif key == ord(']') or key == ord('}'):
+                    self.change_speed('up')
+
+                elif key == ord(' '):
+                    # Attempt calibration
+                    print("\n[SPACE pressed] Attempting calibration...")
+
+                    if not row1_visible or not row2_visible:
+                        print("✗ Cannot calibrate - both tags must be visible!")
+                        print(f"  Row 1 (ID {ROW1_TAG_ID}): {'✓ Visible' if row1_visible else '✗ Not visible'}")
+                        print(f"  Row 2 (ID {ROW2_TAG_ID}): {'✓ Visible' if row2_visible else '✗ Not visible'}")
+                        continue
+
+                    # Capture calibration - find the detections with pose data
+                    row1_detection = None
+                    row2_detection = None
+
                     for d in detections:
-                        if d.tag_id == ROW1_TAG_ID:
+                        if d.tag_id == ROW1_TAG_ID and d.pose_t is not None:
                             row1_detection = d
-                        elif d.tag_id == ROW2_TAG_ID:
+                        elif d.tag_id == ROW2_TAG_ID and d.pose_t is not None:
                             row2_detection = d
 
                     if row1_detection and row2_detection:
-                        print("\n✓ Both tags detected!")
+                        print("\n✓ Both tags detected with valid pose!")
                         print(f"  Row 1 Tag (ID {ROW1_TAG_ID}): Distance = {np.linalg.norm(row1_detection.pose_t):.3f}m")
                         print(f"  Row 2 Tag (ID {ROW2_TAG_ID}): Distance = {np.linalg.norm(row2_detection.pose_t):.3f}m")
 
@@ -363,17 +594,27 @@ class ShelfCalibrator:
                         # Save configuration
                         self.save_config()
 
-                        print("\n✓ Calibration complete!")
+                        print("\n" + "="*60)
+                        print("✓✓✓ CALIBRATION COMPLETE! ✓✓✓")
+                        print("="*60)
                         print(f"✓ Configuration saved to: {OUTPUT_FILE}")
                         print(f"✓ {len(slot_positions)} slots configured:")
                         for slot_name, slot_data in slot_positions.items():
-                            print(f"  - {slot_name}: {slot_data['ingredient']}")
+                            print(f"  - {slot_name}: Row {slot_data['row']}, Col {slot_data['col']}")
+                        print("\nNote: Ingredients are NOT pre-assigned.")
+                        print("They will be detected dynamically during patrol with YOLO.")
+                        print("="*60)
 
                         break
+                    else:
+                        print("✗ Tags detected but pose estimation failed!")
+                        print("  Try improving lighting or tag visibility")
 
         finally:
             self.close_camera()
             cv2.destroyAllWindows()
+            if self.arm:
+                del self.arm
 
     def save_config(self):
         """Save calibration configuration to JSON file"""
