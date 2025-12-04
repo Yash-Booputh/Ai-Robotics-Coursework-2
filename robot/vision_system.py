@@ -89,27 +89,16 @@ class VisionSystem:
         try:
             self.logger.info(f"Starting camera {camera_id}...")
 
-            # Try DirectShow on Windows for better performance
-            self.camera = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
-
-            if not self.camera.isOpened():
-                # Try without DirectShow
-                self.camera = cv2.VideoCapture(camera_id)
+            # Try default backend first (more reliable)
+            self.camera = cv2.VideoCapture(camera_id)
 
             if not self.camera.isOpened():
                 self.logger.error(f"Failed to open camera {camera_id}")
                 return False
 
-            # Configure camera (based on Yahboom settings)
-            self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+            # Configure camera - minimal settings for compatibility
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-            self.camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-
-            # Optimize camera settings for detection
-            self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 30)     # Brightness -64 to 64
-            self.camera.set(cv2.CAP_PROP_CONTRAST, 50)       # Contrast -64 to 64
-            self.camera.set(cv2.CAP_PROP_EXPOSURE, 156)      # Exposure 1.0 - 5000
             self.camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)      # Minimal buffer for low latency
 
             # Test read

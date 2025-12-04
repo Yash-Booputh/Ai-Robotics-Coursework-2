@@ -15,7 +15,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import (
     APP_NAME, WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT,
     WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT, LOG_FILE, LOG_LEVEL,
-    COLOR_BG_DARK
+    COLOR_BG_DARK, COLOR_TITLE_BAR, COLOR_TITLE_TEXT, COLOR_TITLE_SUBTITLE,
+    COLOR_STATUS_BAR, COLOR_STATUS_TEXT, FONT_FAMILY
 )
 from robot import DofbotController, VisionSystem, PickSequence
 from ui import (
@@ -45,6 +46,10 @@ class ChefMateApp(tk.Tk):
         self.title(WINDOW_TITLE)
         self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
+        self.configure(bg=COLOR_BG_DARK)
+
+        # Start maximized
+        self.state('zoomed')
 
         # Configure styles
         self.configure_styles()
@@ -57,6 +62,10 @@ class ChefMateApp(tk.Tk):
 
         # Application state
         self.current_pizza_order = None
+        self.current_screen_name = "Home"
+
+        # Create title bar
+        self.create_title_bar()
 
         # Create main container
         container = tk.Frame(self, bg=COLOR_BG_DARK)
@@ -69,6 +78,9 @@ class ChefMateApp(tk.Tk):
 
         # Create all screens
         self.create_screens(container)
+
+        # Create status bar
+        self.create_status_bar()
 
         # Show home screen
         self.show_frame("HomeScreen")
@@ -103,6 +115,72 @@ class ChefMateApp(tk.Tk):
         # Dark frame style
         style.configure('Dark.TFrame', background=COLOR_BG_DARK)
 
+    def create_title_bar(self):
+        """Create modern title bar with app name and HOME button"""
+        title_frame = tk.Frame(self, bg=COLOR_TITLE_BAR)
+        title_frame.pack(fill=tk.X)
+
+        title_container = tk.Frame(title_frame, bg=COLOR_TITLE_BAR)
+        title_container.pack(side=tk.LEFT, padx=20, pady=15)
+
+        title_label = tk.Label(
+            title_container,
+            text="ChefMate Robot Assistant",
+            font=(FONT_FAMILY, 20, 'bold'),
+            bg=COLOR_TITLE_BAR,
+            fg=COLOR_TITLE_TEXT
+        )
+        title_label.pack(anchor=tk.W)
+
+        # Mode subtitle label
+        self.mode_subtitle_label = tk.Label(
+            title_container,
+            text="Home",
+            font=(FONT_FAMILY, 10),
+            bg=COLOR_TITLE_BAR,
+            fg=COLOR_TITLE_SUBTITLE
+        )
+        self.mode_subtitle_label.pack(anchor=tk.W)
+
+        # Home button in title bar
+        home_btn = tk.Button(
+            title_frame,
+            text="HOME",
+            command=self.go_home,
+            font=(FONT_FAMILY, 10, 'bold'),
+            bg='#0D47A1',
+            fg=COLOR_TITLE_TEXT,
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8
+        )
+        home_btn.pack(side=tk.RIGHT, padx=20, pady=10)
+
+    def create_status_bar(self):
+        """Create status bar at bottom"""
+        status_frame = tk.Frame(self, bg=COLOR_STATUS_BAR)
+        status_frame.pack(fill=tk.X, side=tk.BOTTOM)
+
+        self.status_label = tk.Label(
+            status_frame,
+            text="[READY] Welcome to ChefMate Robot Assistant",
+            font=(FONT_FAMILY, 9),
+            bg=COLOR_STATUS_BAR,
+            fg=COLOR_STATUS_TEXT,
+            anchor=tk.W
+        )
+        self.status_label.pack(fill=tk.X, padx=15, pady=6)
+
+    def update_status(self, message):
+        """Update status bar message"""
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text=message)
+
+    def go_home(self):
+        """Navigate to home screen"""
+        self.show_frame("HomeScreen")
+
     def create_screens(self, container):
         """
         Create all application screens
@@ -128,9 +206,9 @@ class ChefMateApp(tk.Tk):
                 frame = ScreenClass(container, self)
                 self.frames[screen_name] = frame
                 frame.grid(row=0, column=0, sticky="nsew")
-                self.logger.info(f"  ✓ {screen_name} created")
+                self.logger.info(f"  [OK] {screen_name} created")
             except Exception as e:
-                self.logger.error(f"  ✗ Failed to create {screen_name}: {e}")
+                self.logger.error(f"  [ERROR] Failed to create {screen_name}: {e}")
                 raise
 
     def show_frame(self, screen_name):
@@ -154,6 +232,31 @@ class ChefMateApp(tk.Tk):
         # Show requested screen
         frame = self.frames[screen_name]
         frame.tkraise()
+
+        # Update subtitle based on screen
+        screen_titles = {
+            "HomeScreen": "Home",
+            "MenuScreen": "Pizza Menu - Order Mode",
+            "CartScreen": "Cart - Review Order",
+            "RobotScreen": "Robot Execution",
+            "FileUploadScreen": "File Upload - Detection Mode",
+            "LiveCameraScreen": "Live Camera - Detection Mode"
+        }
+
+        if hasattr(self, 'mode_subtitle_label'):
+            self.mode_subtitle_label.config(text=screen_titles.get(screen_name, "Unknown"))
+
+        # Update status
+        status_messages = {
+            "HomeScreen": "[HOME] Select a mode to begin",
+            "MenuScreen": "[MENU] Select a pizza to order",
+            "CartScreen": "[CART] Review your order",
+            "RobotScreen": "[ROBOT] Executing order...",
+            "FileUploadScreen": "[FILE UPLOAD] Upload images for detection",
+            "LiveCameraScreen": "[LIVE CAMERA] Real-time detection mode"
+        }
+
+        self.update_status(status_messages.get(screen_name, "[READY]"))
 
         # Call on_show if screen has the method
         if hasattr(frame, 'on_show'):

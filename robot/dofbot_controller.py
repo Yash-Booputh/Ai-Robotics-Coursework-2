@@ -9,11 +9,12 @@ from typing import List, Optional
 
 try:
     from Arm_Lib import Arm_Device
-
     ARM_LIB_AVAILABLE = True
 except ImportError:
     ARM_LIB_AVAILABLE = False
-    print("⚠️  Warning: Arm_Lib not found. Robot control will be simulated.")
+    # Suppress warning - simulation mode is fine for UI testing
+    # Uncomment line below to see warning:
+    # print("⚠️  Warning: Arm_Lib not found. Robot control will be simulated.")
 
 from config.positions import (
     HOME_POSITION, DELIVERY_POSITION,

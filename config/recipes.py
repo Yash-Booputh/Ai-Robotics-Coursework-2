@@ -46,6 +46,14 @@ PIZZA_RECIPES = {
         "ingredients": ["chicken", "cheese", "basil"],
         "price": "$15.99",
         "image": "pesto_chicken.jpg"
+    },
+
+    "Ocean Garden": {
+        "name": "Ocean Garden",
+        "description": "Seafood lovers dream with shrimp, anchovies and basil",
+        "ingredients": ["shrimp", "anchovies", "basil"],
+        "price": "$17.99",
+        "image": "ocean_garden.jpg"
     }
 }
 

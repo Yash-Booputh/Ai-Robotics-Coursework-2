@@ -1,6 +1,6 @@
 """
 ChefMate Robot Assistant - Live Camera Screen
-Real-time ingredient detection (no robot control)
+Real-time ingredient detection (IRIS-style modern design)
 """
 
 import tkinter as tk
@@ -10,9 +10,10 @@ import cv2
 import threading
 import time
 
+from .widgets import ModernButton
 from config.settings import (
-    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_DANGER,
-    COLOR_BG_DARK, COLOR_BG_MEDIUM, COLOR_TEXT_LIGHT,
+    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_INFO,
+    COLOR_BG_DARK, COLOR_BG_LIGHT, COLOR_BG_MEDIUM, COLOR_TEXT_DARK, COLOR_TEXT_GRAY,
     FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
 )
 
@@ -43,110 +44,147 @@ class LiveCameraScreen(ttk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
-        """Create all UI widgets"""
+        """Create all UI widgets - modern IRIS style"""
         # Main container
         main_frame = tk.Frame(self, bg=COLOR_BG_DARK)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Header
-        header_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK, height=80)
-        header_frame.pack(fill=tk.X, padx=20, pady=20)
-        header_frame.pack_propagate(False)
+        header = tk.Frame(main_frame, bg=COLOR_BG_LIGHT)
+        header.pack(fill=tk.X, padx=0, pady=(0, 10))
 
-        # Back button
-        back_btn = tk.Button(
-            header_frame,
-            text="← Back",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT,
-            command=self.go_back,
-            relief=tk.FLAT,
-            padx=20,
-            pady=10,
-            cursor="hand2"
+        title = tk.Label(
+            header,
+            text="Live Camera Detection",
+            font=(FONT_FAMILY, 18, 'bold'),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_INFO
         )
-        back_btn.pack(side=tk.LEFT)
+        title.pack(pady=12)
 
-        # Title
-        title_label = tk.Label(
-            header_frame,
-            text="📷 Live Camera Detection",
-            font=(FONT_FAMILY, FONT_SIZE_HEADER, "bold"),
-            bg=COLOR_BG_DARK,
-            fg=COLOR_PRIMARY
-        )
-        title_label.pack(side=tk.LEFT, padx=20)
+        # Use PanedWindow for responsive layout
+        paned = tk.PanedWindow(main_frame, orient=tk.HORIZONTAL, bg=COLOR_BG_DARK,
+                               sashwidth=5, sashrelief=tk.RAISED)
+        paned.pack(fill=tk.BOTH, expand=True)
 
-        # Start/Stop buttons
-        self.start_btn = tk.Button(
-            header_frame,
-            text="▶ Start Camera",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg=COLOR_SUCCESS,
-            fg=COLOR_TEXT_LIGHT,
-            command=self.start_camera,
-            relief=tk.FLAT,
-            padx=20,
-            pady=10,
-            cursor="hand2"
-        )
-        self.start_btn.pack(side=tk.RIGHT, padx=5)
-
-        self.stop_btn = tk.Button(
-            header_frame,
-            text="⏹ Stop Camera",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg=COLOR_DANGER,
-            fg=COLOR_TEXT_LIGHT,
-            command=self.stop_camera,
-            relief=tk.FLAT,
-            padx=20,
-            pady=10,
-            cursor="hand2",
-            state=tk.DISABLED
-        )
-        self.stop_btn.pack(side=tk.RIGHT, padx=5)
-
-        # Content area
-        content_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-
-        # Left: Camera feed
-        camera_container = tk.Frame(content_frame, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2)
-        camera_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-
-        camera_title = tk.Label(
-            camera_container,
-            text="Camera Feed",
-            font=(FONT_FAMILY, FONT_SIZE_LARGE, "bold"),
-            bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
-        )
-        camera_title.pack(pady=10)
+        # LEFT panel - LARGE Camera display (70% of space)
+        left_panel = tk.Frame(paned, bg='#1a1a1a')
+        paned.add(left_panel, minsize=500, stretch="always")
 
         # Camera display
         self.camera_label = tk.Label(
-            camera_container,
-            bg=COLOR_BG_DARK,
-            text="Camera Off\n\nClick 'Start Camera' to begin",
-            font=(FONT_FAMILY, FONT_SIZE_LARGE),
-            fg="#7F8C8D",
-            width=80,
-            height=30
+            left_panel,
+            text="Camera Feed\n\nClick 'Start Camera' to begin",
+            font=(FONT_FAMILY, 14),
+            bg='#1a1a1a',
+            fg='white'
         )
-        self.camera_label.pack(padx=10, pady=(0, 10), expand=True)
+        self.camera_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # FPS and status
-        status_frame = tk.Frame(camera_container, bg=COLOR_BG_MEDIUM)
-        status_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        # RIGHT panel - Compact Controls (30% of space)
+        right_panel = tk.Frame(paned, bg=COLOR_BG_LIGHT)
+        paned.add(right_panel, minsize=300, stretch="never")
+
+        # Controls header
+        controls_label = tk.Label(
+            right_panel,
+            text="Controls",
+            font=(FONT_FAMILY, 13, 'bold'),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_DARK
+        )
+        controls_label.pack(pady=(10, 8))
+
+        # Camera controls
+        camera_controls = tk.Frame(right_panel, bg=COLOR_BG_LIGHT)
+        camera_controls.pack(pady=5, padx=10, fill=tk.X)
+
+        self.start_btn = ModernButton(
+            camera_controls,
+            text="START CAMERA",
+            command=self.start_camera,
+            bg=COLOR_SUCCESS
+        )
+        self.start_btn.pack(pady=3, fill=tk.X)
+
+        self.stop_btn = ModernButton(
+            camera_controls,
+            text="STOP CAMERA",
+            command=self.stop_camera,
+            bg=COLOR_DANGER
+        )
+        self.stop_btn.pack(pady=3, fill=tk.X)
+        self.stop_btn.config(state=tk.DISABLED)
+
+        # Separator
+        tk.Frame(right_panel, bg=COLOR_BG_MEDIUM, height=1).pack(fill=tk.X, padx=15, pady=10)
+
+        # Info section
+        tk.Label(
+            right_panel,
+            text="Detection Info",
+            font=(FONT_FAMILY, 11, 'bold'),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_DARK
+        ).pack(pady=(10, 5))
+
+        # Current detection frame
+        current_frame = tk.Frame(right_panel, bg='#e8f5e9', relief=tk.SUNKEN, borderwidth=2)
+        current_frame.pack(fill=tk.X, padx=15, pady=8)
+
+        tk.Label(
+            current_frame,
+            text="Current Detection",
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL, 'bold'),
+            bg='#e8f5e9',
+            fg=COLOR_TEXT_DARK
+        ).pack(pady=(8, 3))
+
+        self.current_detection_label = tk.Label(
+            current_frame,
+            text="No detection",
+            font=(FONT_FAMILY, FONT_SIZE_LARGE, 'bold'),
+            bg='#e8f5e9',
+            fg=COLOR_TEXT_GRAY
+        )
+        self.current_detection_label.pack(pady=(3, 5))
+
+        self.confidence_label = tk.Label(
+            current_frame,
+            text="",
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+            bg='#e8f5e9',
+            fg=COLOR_TEXT_GRAY
+        )
+        self.confidence_label.pack(pady=(0, 8))
+
+        # Model Status (NEW - shows if YOLO is loaded)
+        model_status_frame = tk.Frame(right_panel, bg='#e3f2fd', relief=tk.SUNKEN, borderwidth=1)
+        model_status_frame.pack(fill=tk.X, padx=15, pady=8)
+
+        model_loaded = self.controller.vision.is_model_loaded
+        model_text = "YOLO Model: LOADED" if model_loaded else "YOLO Model: NOT LOADED"
+        model_color = COLOR_SUCCESS if model_loaded else COLOR_DANGER
+
+        self.model_status_label = tk.Label(
+            model_status_frame,
+            text=model_text,
+            font=(FONT_FAMILY, 9, 'bold'),
+            bg='#e3f2fd',
+            fg=model_color
+        )
+        self.model_status_label.pack(pady=5)
+
+        # FPS and Status
+        status_frame = tk.Frame(right_panel, bg=COLOR_BG_LIGHT)
+        status_frame.pack(fill=tk.X, padx=15, pady=5)
 
         self.fps_label = tk.Label(
             status_frame,
             text="FPS: 0",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg=COLOR_BG_MEDIUM,
-            fg="#7F8C8D"
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_GRAY
         )
         self.fps_label.pack(side=tk.LEFT)
 
@@ -154,95 +192,49 @@ class LiveCameraScreen(ttk.Frame):
             status_frame,
             text="● Camera Off",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg=COLOR_BG_MEDIUM,
-            fg="#7F8C8D"
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_GRAY
         )
         self.status_label.pack(side=tk.RIGHT)
 
-        # Right: Detection info
-        info_container = tk.Frame(content_frame, bg=COLOR_BG_MEDIUM, width=350, relief=tk.RAISED, borderwidth=2)
-        info_container.pack(side=tk.RIGHT, fill=tk.Y)
-        info_container.pack_propagate(False)
-
-        info_title = tk.Label(
-            info_container,
-            text="Detection Info",
-            font=(FONT_FAMILY, FONT_SIZE_LARGE, "bold"),
-            bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
-        )
-        info_title.pack(pady=10)
-
-        # Current detection box
-        current_frame = tk.Frame(info_container, bg=COLOR_BG_DARK, relief=tk.SUNKEN, borderwidth=2)
-        current_frame.pack(fill=tk.X, padx=20, pady=10)
-
-        current_title = tk.Label(
-            current_frame,
-            text="Current Detection",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg=COLOR_BG_DARK,
-            fg=COLOR_TEXT_LIGHT
-        )
-        current_title.pack(pady=(10, 5))
-
-        self.current_detection_label = tk.Label(
-            current_frame,
-            text="No detection",
-            font=(FONT_FAMILY, FONT_SIZE_LARGE),
-            bg=COLOR_BG_DARK,
-            fg="#7F8C8D"
-        )
-        self.current_detection_label.pack(pady=(5, 10))
-
-        self.confidence_label = tk.Label(
-            current_frame,
-            text="",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg=COLOR_BG_DARK,
-            fg="#7F8C8D"
-        )
-        self.confidence_label.pack(pady=(0, 10))
-
         # Detection history
-        history_title = tk.Label(
-            info_container,
+        tk.Label(
+            right_panel,
             text="Recent Detections",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
-        )
-        history_title.pack(pady=(10, 5))
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL, 'bold'),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_DARK
+        ).pack(pady=(15, 5))
 
-        # History list with scrollbar
-        history_frame = tk.Frame(info_container, bg=COLOR_BG_MEDIUM)
-        history_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        history_frame = tk.Frame(right_panel, bg=COLOR_BG_LIGHT)
+        history_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
 
         history_scrollbar = ttk.Scrollbar(history_frame)
         history_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.history_listbox = tk.Listbox(
             history_frame,
-            bg=COLOR_BG_DARK,
-            fg=COLOR_TEXT_LIGHT,
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+            bg='#fafafa',
+            fg=COLOR_TEXT_DARK,
+            font=(FONT_FAMILY, 9),
             yscrollcommand=history_scrollbar.set,
-            selectmode=tk.SINGLE
+            selectmode=tk.SINGLE,
+            borderwidth=1,
+            relief=tk.SUNKEN
         )
         self.history_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         history_scrollbar.config(command=self.history_listbox.yview)
 
         # Info text
         info_text = tk.Label(
-            info_container,
-            text="ℹ️ Position cubes in view\nof the camera to test detection",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg=COLOR_BG_MEDIUM,
-            fg="#7F8C8D",
-            wraplength=300,
+            right_panel,
+            text="Position ingredients in view\nof the camera for detection",
+            font=(FONT_FAMILY, 9),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_GRAY,
             justify=tk.CENTER
         )
-        info_text.pack(pady=10)
+        info_text.pack(pady=(5, 10))
 
     def start_camera(self):
         """Start camera and detection"""
@@ -258,8 +250,8 @@ class LiveCameraScreen(ttk.Frame):
                 return
 
             self.camera_active = True
-            self.start_btn.configure(state=tk.DISABLED)
-            self.stop_btn.configure(state=tk.NORMAL)
+            self.start_btn.config(state=tk.DISABLED)
+            self.stop_btn.config(state=tk.NORMAL)
             self.status_label.configure(text="● Camera Active", fg=COLOR_SUCCESS)
 
             # Start camera loop
@@ -278,16 +270,16 @@ class LiveCameraScreen(ttk.Frame):
 
         self.controller.stop_vision_camera()
 
-        self.start_btn.configure(state=tk.NORMAL)
-        self.stop_btn.configure(state=tk.DISABLED)
-        self.status_label.configure(text="● Camera Off", fg="#7F8C8D")
+        self.start_btn.config(state=tk.NORMAL)
+        self.stop_btn.config(state=tk.DISABLED)
+        self.status_label.configure(text="● Camera Off", fg=COLOR_TEXT_GRAY)
 
         # Reset display
         self.camera_label.configure(
             image="",
             text="Camera Off\n\nClick 'Start Camera' to begin"
         )
-        self.current_detection_label.configure(text="No detection", fg="#7F8C8D")
+        self.current_detection_label.configure(text="No detection", fg=COLOR_TEXT_GRAY)
         self.confidence_label.configure(text="")
         self.fps_label.configure(text="FPS: 0")
 
@@ -364,11 +356,6 @@ class LiveCameraScreen(ttk.Frame):
         self.history_listbox.delete(0, tk.END)
         for entry in reversed(self.detection_history):
             self.history_listbox.insert(tk.END, entry)
-
-    def go_back(self):
-        """Go back to home screen"""
-        self.stop_camera()
-        self.controller.show_frame("HomeScreen")
 
     def on_show(self):
         """Called when screen is shown"""
