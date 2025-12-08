@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 #coding=utf-8
 """
-Grab Position Configurator for DOFBOT - WITH GAME CONTROLLER SUPPORT (PYGAME)
-==============================================================================
-Configure precise grab positions for each slot using GAME CONTROLLER.
+Grab Position Configurator V2 for DOFBOT - WITH GAME CONTROLLER SUPPORT (PYGAME)
+==================================================================================
+Configure grab sequences with multi-waypoint system using GAME CONTROLLER.
+
+WORKFLOW FOR EACH SLOT:
+1. Press F1-F6 to select slot
+2. Configure WAYPOINT 1 (Safe Level Position - outside shelf, at cube height)
+   - Use controller/keyboard to position arm
+   - Press CROSS/A button (or '1' key) to save WP1
+3. Configure WAYPOINT 2 (Grab Position - inside shelf, at cube)
+   - Use controller/keyboard to position arm
+   - Press TRIANGLE/Y button (or '2' key) to save WP2
+4. Press START (or SPACE) to save complete sequence
 
 CONTROLLER MAPPING (PlayStation/Xbox style):
 - Left Joystick: Servo 1 (horizontal) & Servo 2 (vertical) - Base & Shoulder
@@ -12,23 +22,27 @@ CONTROLLER MAPPING (PlayStation/Xbox style):
 - L2 (Button 6): Servo 3 increase (Elbow)
 - R1 (Button 5): Servo 4 decrease (Wrist pitch)
 - R2 (Button 7): Servo 4 increase (Wrist pitch)
+- CROSS/A (Button 0): Save Waypoint 1 (Safe Level)
+- TRIANGLE/Y (Button 2): Save Waypoint 2 (Grab Position)
 - SELECT (Button 8): Reset all servos to 90°
-- START (Button 9): Save grab position for current slot
-- Triangle (Button 2): Increase step size
-- Cross (Button 0): Decrease step size
+- START (Button 9): Save complete grab sequence
+- Circle (Button 1): Decrease speed
+- Square (Button 3): Increase speed
 
 KEYBOARD CONTROLS (still available):
 - W/S/A/D/I/K/J/L/U/O/P/;: Move servos (U/O = GRIPPER ROTATION)
 - F1-F6: Go to slot 1-6 position
-- SPACE: Save grab position
+- 1: Save Waypoint 1 (Safe Level Position)
+- 2: Save Waypoint 2 (Grab Position)
+- SPACE: Save complete grab sequence
 - +/-: Step size
 - [/]: Speed
 - Q: Quit
 
-WORKFLOW:
-1. Press F1-F6 to automatically move to that slot
-2. Use controller/keyboard to fine-tune grab position
-3. Press START (or SPACE) to save grab position
+IMPORTANT:
+- Waypoint 1: Position arm OUTSIDE the shelf, at the SAME HEIGHT as the cube
+- Waypoint 2: The actual grab position (endpoint) INSIDE the shelf, around the cube
+- The robot will move horizontally from WP1 to WP2 (minimal movement)
 
 INSTALLATION:
 pip install pygame
@@ -126,6 +140,10 @@ class GrabConfigurator:
         self.button_pressed = {}
         self.last_button_time = {}
 
+        # Analog stick rate limiting (to prevent servo speed acceleration)
+        self.last_analog_time = 0
+        self.analog_rate_limit = 0.05  # 50ms minimum between analog stick servo commands
+
         # Initialize camera
         print("Initializing camera...")
         os.environ['QT_QPA_PLATFORM'] = 'xcb'
@@ -155,6 +173,12 @@ class GrabConfigurator:
         # Current slot being programmed
         self.current_slot = 1
 
+        # Waypoint system (like V2)
+        self.waypoints = {
+            1: None,  # Safe Level Position (outside shelf, at cube height)
+            2: None   # Grab Position (inside shelf, at cube endpoint)
+        }
+
         # FPS tracking
         self.fps = 0.0
         self.frame_count = 0
@@ -174,6 +198,10 @@ class GrabConfigurator:
             exit(1)
 
         print(f"✓ Loaded {len(self.slot_positions)} slot positions")
+
+        # Use grab_positions.json for waypoint support
+        global GRAB_POSITIONS_FILE
+        GRAB_POSITIONS_FILE = "grab_positions.json"
 
         # Load existing grab positions if available
         self.grab_positions = self.load_grab_positions()
@@ -205,10 +233,12 @@ class GrabConfigurator:
         print("="*60)
 
         print("\n" + "="*60)
-        print("GRAB POSITION CONFIGURATOR - CONTROLLER MODE")
+        print("GRAB POSITION CONFIGURATOR V2 - CONTROLLER MODE")
+        print("Multi-Waypoint System")
         print("="*60)
         print(f"Controller: {'ENABLED' if self.controller_enabled else 'DISABLED (keyboard only)'}")
         print(f"Selected Slot: {self.current_slot}")
+        print(f"Output File: {GRAB_POSITIONS_FILE}")
 
     def load_slot_positions(self):
         """Load slot positions from JSON"""
@@ -244,6 +274,42 @@ class GrabConfigurator:
         except Exception as e:
             print(f"\n✗ Error saving grab positions: {e}")
             return False
+
+    def get_current_position(self):
+        """Get current position as angles dict"""
+        return {f"servo_{i}": self.current_angles[i] for i in range(1, NUM_SERVOS + 1)}
+
+    def save_waypoint(self, waypoint_num):
+        """Save current position as waypoint"""
+        if waypoint_num not in [1, 2]:
+            print(f"✗ Invalid waypoint number: {waypoint_num}")
+            return False
+
+        angles = self.get_current_position()
+        self.waypoints[waypoint_num] = angles
+
+        waypoint_names = {
+            1: "Safe Level Position (outside shelf)",
+            2: "Grab Position (inside shelf)"
+        }
+        print(f"\n" + "="*60)
+        print(f"✓ WAYPOINT {waypoint_num} SAVED!")
+        print(f"  {waypoint_names[waypoint_num]}")
+        print("="*60)
+
+        # Show servo angles
+        print("  Servo Angles:")
+        for servo_id in range(1, NUM_SERVOS + 1):
+            angle = self.current_angles[servo_id]
+            if servo_id == 5:
+                print(f"    Servo {servo_id}: {angle}° (Gripper Rotation)")
+            elif servo_id == 6:
+                print(f"    Servo {servo_id}: {angle}° (Gripper Open/Close)")
+            else:
+                print(f"    Servo {servo_id}: {angle}°")
+
+        print("="*60)
+        return True
 
     def move_servo(self, servo_id, angle):
         """Move a specific servo to an angle"""
@@ -446,6 +512,16 @@ class GrabConfigurator:
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, slot_color, 2)
         y_offset += 22
 
+        # Waypoint status
+        for wp_num in [1, 2]:
+            status = "✓" if self.waypoints[wp_num] else "✗"
+            color = (0, 255, 0) if self.waypoints[wp_num] else (0, 0, 255)
+            wp_names = {1: "WP1", 2: "WP2"}
+            text = f"{wp_names[wp_num]}:{status}"
+            cv2.putText(frame, text, (right_x, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+            y_offset += 18
+
         # Saved status
         slot_key = f"slot_{self.current_slot}"
         if slot_key in self.grab_positions:
@@ -496,15 +572,16 @@ class GrabConfigurator:
         if self.controller_enabled:
             instructions.extend([
                 "L-Stick:S1/S2 R-Stick:S5(ROT)/S6",
-                "L1/L2:S3 R1/R2:S4 START:SaveGrab"
+                "CROSS:WP1 TRIANGLE:WP2 START:Save",
+                "L1/L2:S3 R1/R2:S4"
             ])
         else:
             instructions.extend([
-                "F1-F6:GoToSlot | U/O:S5(GRIP-ROT)",
-                "SPACE:SaveGrab | Q:Quit"
+                "F1-F6:Slot | 1:WP1 2:WP2",
+                "U/O:S5(GRIP-ROT) | SPACE:Save | Q:Quit"
             ])
 
-        y_offset = h - 40
+        y_offset = h - 55
         for instruction in instructions:
             cv2.putText(frame, instruction, (5, y_offset),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200, 200, 200), 1)
@@ -513,26 +590,49 @@ class GrabConfigurator:
         return frame
 
     def save_grab_position(self, slot_number):
-        """Save current grab position for a specific slot"""
-        print(f"\nSaving grab position for Slot {slot_number}...")
+        """Save complete grab sequence with waypoints for a specific slot"""
+        print(f"\nSaving grab sequence for Slot {slot_number}...")
 
-        angles = {f"servo_{i}": self.current_angles[i] for i in range(1, NUM_SERVOS + 1)}
+        # Check all waypoints are configured
+        missing = [i for i in [1, 2] if self.waypoints[i] is None]
+        if missing:
+            print(f"\n✗ Missing waypoints: {missing}")
+            print("  Configure waypoints 1 and 2 before saving")
+            if 1 in missing:
+                print("  Press '1' to save Waypoint 1: Safe Level Position (outside shelf, at cube height)")
+            if 2 in missing:
+                print("  Press '2' to save Waypoint 2: Grab Position (inside shelf, at cube)")
+            return False
 
         slot_key = f"slot_{slot_number}"
         self.grab_positions[slot_key] = {
-            "angles": angles,
-            "gripper_rotation": self.current_angles.get(5, 90),
-            "gripper_close": self.current_angles.get(6, 90),
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "slot_number": slot_number,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "waypoint_1_safe_level": self.waypoints[1],
+            "waypoint_2_grab": self.waypoints[2]
         }
 
-        print(f"\n✓ Grab position saved for Slot {slot_number}:")
-        for servo, angle in angles.items():
-            print(f"  {servo}: {angle}°")
-        print(f"  *** Gripper rotation (S5): {self.current_angles.get(5, 90)}° ***")
-        print(f"  *** Gripper close (S6): {self.current_angles.get(6, 90)}° ***")
+        if self.save_grab_positions():
+            print("\n" + "="*60)
+            print(f"✓✓✓ SLOT {slot_number} GRAB SEQUENCE SAVED! ✓✓✓")
+            print("="*60)
+            print(f"Saved to: {GRAB_POSITIONS_FILE}")
+            print("\nSequence configured:")
+            print("  1. Safe Level Position (outside shelf, at cube height)")
+            print("  2. Grab Position (inside shelf, at cube)")
+            print("\nExecution will:")
+            print("  - Move to WP1 (safe level position)")
+            print("  - Open gripper")
+            print("  - Move to WP2 (grab position)")
+            print("  - Close gripper")
+            print("="*60)
 
-        return self.save_grab_positions()
+            # Reset waypoints after saving
+            self.waypoints = {1: None, 2: None}
+            return True
+        else:
+            print("✗ Failed to save!")
+            return False
 
     def is_button_pressed(self, button_id, debounce_time=0.3):
         """Check if button is pressed with debouncing"""
@@ -556,64 +656,94 @@ class GrabConfigurator:
         # Process pygame events (required for joystick updates)
         pygame.event.pump()
 
+        # Rate limiting for analog stick inputs
+        current_time = time.time()
+        if current_time - self.last_analog_time < self.analog_rate_limit:
+            # Skip this update if we're updating too fast
+            return
+
+        # Use a fixed step size for analog stick control (not modified by controller)
         s_step = self.angle_step
+
+        # Track if any servo was moved (for rate limiting)
+        servo_moved = False
 
         # Left joystick - Servo 1 (horizontal) and Servo 2 (vertical)
         try:
             axis0_val = self.joystick.get_axis(0)  # Left stick horizontal
             axis1_val = self.joystick.get_axis(1)  # Left stick vertical
 
+            # Track if left stick is being used
+            left_stick_active = False
+
             # Servo 1 - Base rotation
             if abs(axis0_val) > CONTROLLER_DEADZONE:
+                left_stick_active = True
                 if axis0_val > CONTROLLER_DEADZONE:
                     self.adjust_servo(1, -s_step)
+                    servo_moved = True
                 else:
                     self.adjust_servo(1, s_step)
+                    servo_moved = True
 
-            # Servo 2 - Shoulder
+            # Servo 2 - Shoulder (reversed: down=down, up=up)
             if abs(axis1_val) > CONTROLLER_DEADZONE:
+                left_stick_active = True
                 if axis1_val > CONTROLLER_DEADZONE:
-                    self.adjust_servo(2, s_step)
-                else:
                     self.adjust_servo(2, -s_step)
+                    servo_moved = True
+                else:
+                    self.adjust_servo(2, s_step)
+                    servo_moved = True
 
-            # Right joystick - Servo 5 (GRIPPER ROTATION) and Servo 6
-            if self.joystick.get_numaxes() >= 4:
-                axis2_val = self.joystick.get_axis(2)
-                axis3_val = self.joystick.get_axis(3)
-
-                # Try axis 4 and 5 for some controllers
+            # Right joystick - Servo 5 (GRIPPER ROTATION - vertical) and Servo 6 (GRIPPER - horizontal)
+            # NOTE: Right stick only! Left stick (axis 0, 1) should NOT affect servos 5 or 6
+            # IMPORTANT: Skip right stick processing if left stick is active to prevent axis bleeding
+            if not left_stick_active and self.joystick.get_numaxes() >= 4:
+                # Try axis 4 and 5 first (common for PS4/Xbox controllers)
                 if self.joystick.get_numaxes() >= 6:
-                    axis4_val = self.joystick.get_axis(4)
-                    axis5_val = self.joystick.get_axis(5)
+                    axis4_val = self.joystick.get_axis(4)  # Right stick horizontal
+                    axis5_val = self.joystick.get_axis(5)  # Right stick vertical
 
-                    # Servo 6 - Gripper
+                    # Servo 6 - Gripper (Right stick horizontal)
                     if abs(axis4_val) > CONTROLLER_DEADZONE:
                         if axis4_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(6, -s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(6, s_step)
+                            servo_moved = True
 
-                    # Servo 5 - GRIPPER ROTATION (IMPORTANT!)
+                    # Servo 5 - GRIPPER ROTATION (Right stick vertical)
                     if abs(axis5_val) > CONTROLLER_DEADZONE:
                         if axis5_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(5, s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(5, -s_step)
+                            servo_moved = True
                 else:
-                    # Fallback to axis 2/3
+                    # Fallback to axis 2/3 (some controllers use these for right stick)
+                    axis2_val = self.joystick.get_axis(2)  # Right stick horizontal
+                    axis3_val = self.joystick.get_axis(3)  # Right stick vertical
+
+                    # Servo 6 - Gripper (Right stick horizontal)
                     if abs(axis2_val) > CONTROLLER_DEADZONE:
                         if axis2_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(6, -s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(6, s_step)
+                            servo_moved = True
 
-                    # Servo 5 - GRIPPER ROTATION
+                    # Servo 5 - GRIPPER ROTATION (Right stick vertical)
                     if abs(axis3_val) > CONTROLLER_DEADZONE:
                         if axis3_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(5, s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(5, -s_step)
+                            servo_moved = True
 
             # Shoulder buttons for Servo 3 and 4
             num_buttons = self.joystick.get_numbuttons()
@@ -621,14 +751,18 @@ class GrabConfigurator:
             # Servo 3 - Elbow (L1=4, L2=6)
             if num_buttons > 4 and self.joystick.get_button(4):
                 self.adjust_servo(3, -s_step)
+                servo_moved = True
             if num_buttons > 6 and self.joystick.get_button(6):
                 self.adjust_servo(3, s_step)
+                servo_moved = True
 
             # Servo 4 - Wrist pitch (R1=5, R2=7)
             if num_buttons > 5 and self.joystick.get_button(5):
                 self.adjust_servo(4, -s_step)
+                servo_moved = True
             if num_buttons > 7 and self.joystick.get_button(7):
                 self.adjust_servo(4, s_step)
+                servo_moved = True
 
             # SELECT button (8) - Reset to 90 degrees
             if num_buttons > 8 and self.is_button_pressed(8):
@@ -642,11 +776,21 @@ class GrabConfigurator:
             if num_buttons > 9 and self.is_button_pressed(9):
                 self.save_grab_position(self.current_slot)
 
-            # Buttons for adjustments
-            if num_buttons > 0 and self.is_button_pressed(0):  # Cross/A - decrease step
-                self.adjust_step_size(-1)
-            if num_buttons > 2 and self.is_button_pressed(2):  # Triangle/Y - increase step
-                self.adjust_step_size(1)
+            # Waypoint saving buttons (Button 0 = WP1, Button 2 = WP2)
+            if num_buttons > 0 and self.is_button_pressed(0, debounce_time=0.5):  # Cross/A - Save Waypoint 1
+                self.save_waypoint(1)
+            if num_buttons > 2 and self.is_button_pressed(2, debounce_time=0.5):  # Triangle/Y - Save Waypoint 2
+                self.save_waypoint(2)
+
+            # Speed control buttons (Button 1 = decrease, Button 3 = increase)
+            if num_buttons > 1 and self.is_button_pressed(1):  # Button 1 - decrease speed
+                self.change_speed('down')
+            if num_buttons > 3 and self.is_button_pressed(3):  # Button 3 - increase speed
+                self.change_speed('up')
+
+            # Update the last analog time if any servo was moved
+            if servo_moved:
+                self.last_analog_time = current_time
 
         except Exception as e:
             print(f"Controller input error: {e}")
@@ -663,10 +807,12 @@ class GrabConfigurator:
             print("  Right Stick     - Servo 5 (GRIP-ROT) & Servo 6 (Gripper)")
             print("  L1/L2           - Servo 3 (Elbow)")
             print("  R1/R2           - Servo 4 (Wrist pitch)")
+            print("  CROSS/A (B0)    - Save Waypoint 1 (Safe Level)")
+            print("  TRIANGLE/Y (B2) - Save Waypoint 2 (Grab Position)")
             print("  SELECT (B8)     - Reset all servos to 90°")
-            print("  START (B9)      - Save grab position")
-            print("  Cross (B0)      - Decrease step size")
-            print("  Triangle (B2)   - Increase step size")
+            print("  START (B9)      - Save complete grab sequence")
+            print("  Circle (B1)     - Decrease speed")
+            print("  Square (B3)     - Increase speed")
         else:
             print("KEYBOARD MODE (Controller not available)")
             print("="*60)
@@ -676,11 +822,18 @@ class GrabConfigurator:
         print("  W/S/A/D/I/K/J/L - Move servos")
         print("  U/O             - Servo 5 (GRIPPER ROTATION) ← IMPORTANT!")
         print("  P/;             - Servo 6 (Gripper open/close)")
-        print("  SPACE           - Save grab position")
+        print("  1               - Save Waypoint 1 (Safe Level)")
+        print("  2               - Save Waypoint 2 (Grab Position)")
+        print("  SPACE           - Save complete grab sequence")
         print("  +/-             - Step size")
         print("  [ / ]           - Speed")
         print("  T               - Toggle detection")
         print("  Q               - Quit")
+        print("\nWORKFLOW:")
+        print("  1. Press F1-F6 to select slot")
+        print("  2. Configure Waypoint 1 (outside shelf, at cube height) - press 1 or CROSS/A")
+        print("  3. Configure Waypoint 2 (inside shelf, at cube) - press 2 or TRIANGLE/Y")
+        print("  4. Press SPACE or START to save complete sequence")
         print("\nCurrent slot: {}".format(self.current_slot))
         print("="*60)
 
@@ -736,9 +889,17 @@ class GrabConfigurator:
                 # Slot selection (F1-F6)
                 if key >= 190 and key <= 195:
                     self.current_slot = key - 189
+                    # Reset waypoints when switching slots
+                    self.waypoints = {1: None, 2: None}
                     print(f"\n{'='*60}")
                     print(f"Selected Slot {self.current_slot}")
                     self.move_to_slot(self.current_slot)
+
+                # Save waypoints (1 and 2 keys)
+                elif key == ord('1'):
+                    self.save_waypoint(1)
+                elif key == ord('2'):
+                    self.save_waypoint(2)
 
                 # Servo 1 - Base rotation (W/S)
                 elif key == ord('w') or key == ord('W'):

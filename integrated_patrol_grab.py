@@ -40,7 +40,7 @@ except ImportError:
 
 # File paths
 SLOT_POSITIONS_FILE = "slot_positions.json"
-GRAB_POSITIONS_FILE = "grab_positions_v2.json"
+GRAB_POSITIONS_FILE = "grab_positions.json"
 MODEL_PATH = "models/best.onnx"
 
 # Robot configuration

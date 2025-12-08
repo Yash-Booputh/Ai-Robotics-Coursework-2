@@ -14,9 +14,8 @@ CONTROLLER MAPPING (PlayStation/Xbox style):
 - R2 (Button 7): Servo 4 increase (Wrist pitch)
 - SELECT (Button 8): Reset all servos to 90°
 - START (Button 9): Save current position to selected slot
-- D-Pad Left/Right: Change slot selection
-- Triangle (Button 2): Increase step size
-- Cross (Button 0): Decrease step size
+- Circle (Button 1): Decrease speed
+- Square (Button 3): Increase speed
 
 KEYBOARD CONTROLS (still available):
 - W/S/A/D/I/K/J/L/U/O/P/;: Move servos
@@ -289,6 +288,10 @@ class SlotConfigurator:
         # Button debounce tracking
         self.button_pressed = {}
         self.last_button_time = {}
+
+        # Analog stick rate limiting (to prevent servo speed acceleration)
+        self.last_analog_time = 0
+        self.analog_rate_limit = 0.05  # 50ms minimum between analog stick servo commands
 
         # Initialize camera with environment variable for display
         print("Initializing camera...")
@@ -731,63 +734,93 @@ class SlotConfigurator:
         # Process pygame events (required for joystick updates)
         pygame.event.pump()
 
+        # Rate limiting for analog stick inputs
+        current_time = time.time()
+        if current_time - self.last_analog_time < self.analog_rate_limit:
+            # Skip this update if we're updating too fast
+            return
+
         s_step = self.angle_step
+
+        # Track if any servo was moved (for rate limiting)
+        servo_moved = False
 
         # Left joystick - Servo 1 (horizontal) and Servo 2 (vertical)
         try:
             axis0_val = self.joystick.get_axis(0)  # Left stick horizontal
             axis1_val = self.joystick.get_axis(1)  # Left stick vertical
 
+            # Track if left stick is being used
+            left_stick_active = False
+
             # Servo 1 - Base rotation
             if abs(axis0_val) > CONTROLLER_DEADZONE:
+                left_stick_active = True
                 if axis0_val > CONTROLLER_DEADZONE:
                     self.adjust_servo(1, -s_step)
+                    servo_moved = True
                 else:
                     self.adjust_servo(1, s_step)
+                    servo_moved = True
 
-            # Servo 2 - Shoulder
+            # Servo 2 - Shoulder (reversed: down=down, up=up)
             if abs(axis1_val) > CONTROLLER_DEADZONE:
+                left_stick_active = True
                 if axis1_val > CONTROLLER_DEADZONE:
-                    self.adjust_servo(2, s_step)
-                else:
                     self.adjust_servo(2, -s_step)
+                    servo_moved = True
+                else:
+                    self.adjust_servo(2, s_step)
+                    servo_moved = True
 
-            # Right joystick - Servo 5 and Servo 6
-            if self.joystick.get_numaxes() >= 4:
-                axis2_val = self.joystick.get_axis(2)  # Right stick horizontal (sometimes axis 3)
-                axis3_val = self.joystick.get_axis(3)  # Right stick vertical
-
-                # Try axis 4 and 5 for some controllers
+            # Right joystick - Servo 5 (Wrist roll - vertical) and Servo 6 (GRIPPER - horizontal)
+            # NOTE: Right stick only! Left stick (axis 0, 1) should NOT affect servos 5 or 6
+            # IMPORTANT: Skip right stick processing if left stick is active to prevent axis bleeding
+            if not left_stick_active and self.joystick.get_numaxes() >= 4:
+                # Try axis 4 and 5 first (common for PS4/Xbox controllers)
                 if self.joystick.get_numaxes() >= 6:
-                    axis4_val = self.joystick.get_axis(4)
-                    axis5_val = self.joystick.get_axis(5)
+                    axis4_val = self.joystick.get_axis(4)  # Right stick horizontal
+                    axis5_val = self.joystick.get_axis(5)  # Right stick vertical
 
-                    # Servo 6 - Gripper
+                    # Servo 6 - Gripper (Right stick horizontal)
                     if abs(axis4_val) > CONTROLLER_DEADZONE:
                         if axis4_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(6, -s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(6, s_step)
+                            servo_moved = True
 
-                    # Servo 5 - Wrist roll
+                    # Servo 5 - Wrist roll (Right stick vertical)
                     if abs(axis5_val) > CONTROLLER_DEADZONE:
                         if axis5_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(5, s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(5, -s_step)
+                            servo_moved = True
                 else:
-                    # Fallback to axis 2/3
+                    # Fallback to axis 2/3 (some controllers use these for right stick)
+                    axis2_val = self.joystick.get_axis(2)  # Right stick horizontal
+                    axis3_val = self.joystick.get_axis(3)  # Right stick vertical
+
+                    # Servo 6 - Gripper (Right stick horizontal)
                     if abs(axis2_val) > CONTROLLER_DEADZONE:
                         if axis2_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(6, -s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(6, s_step)
+                            servo_moved = True
 
+                    # Servo 5 - Wrist roll (Right stick vertical)
                     if abs(axis3_val) > CONTROLLER_DEADZONE:
                         if axis3_val > CONTROLLER_DEADZONE:
                             self.adjust_servo(5, s_step)
+                            servo_moved = True
                         else:
                             self.adjust_servo(5, -s_step)
+                            servo_moved = True
 
             # Shoulder buttons for Servo 3 and 4
             num_buttons = self.joystick.get_numbuttons()
@@ -795,14 +828,18 @@ class SlotConfigurator:
             # Servo 3 - Elbow (L1=4, L2=6)
             if num_buttons > 4 and self.joystick.get_button(4):
                 self.adjust_servo(3, -s_step)
+                servo_moved = True
             if num_buttons > 6 and self.joystick.get_button(6):
                 self.adjust_servo(3, s_step)
+                servo_moved = True
 
             # Servo 4 - Wrist pitch (R1=5, R2=7)
             if num_buttons > 5 and self.joystick.get_button(5):
                 self.adjust_servo(4, -s_step)
+                servo_moved = True
             if num_buttons > 7 and self.joystick.get_button(7):
                 self.adjust_servo(4, s_step)
+                servo_moved = True
 
             # SELECT button (8) - Reset to 90 degrees
             if num_buttons > 8 and self.is_button_pressed(8):
@@ -816,11 +853,22 @@ class SlotConfigurator:
             if num_buttons > 9 and self.is_button_pressed(9):
                 self.save_slot_position(self.current_slot)
 
-            # D-Pad or buttons for slot selection
-            if num_buttons > 0 and self.is_button_pressed(0):  # Cross/A - decrease step
-                self.adjust_step_size(-1)
-            if num_buttons > 2 and self.is_button_pressed(2):  # Triangle/Y - increase step
-                self.adjust_step_size(1)
+            # Speed control buttons (Button 1 = decrease, Button 3 = increase)
+            if num_buttons > 1 and self.is_button_pressed(1):  # Button 1 - decrease speed
+                self.change_speed('down')
+            if num_buttons > 3 and self.is_button_pressed(3):  # Button 3 - increase speed
+                self.change_speed('up')
+
+            # Step size buttons (DISABLED - use keyboard +/- instead to avoid conflicts)
+            # Triangle (Button 2) and Cross (Button 0) can conflict with right stick on some controllers
+            # if num_buttons > 0 and self.is_button_pressed(0):  # Cross/A - decrease step
+            #     self.adjust_step_size(-1)
+            # if num_buttons > 2 and self.is_button_pressed(2):  # Triangle/Y - increase step
+            #     self.adjust_step_size(1)
+
+            # Update the last analog time if any servo was moved
+            if servo_moved:
+                self.last_analog_time = current_time
 
         except Exception as e:
             print(f"Controller input error: {e}")
@@ -839,8 +887,8 @@ class SlotConfigurator:
             print("  R1/R2           - Servo 4 (Wrist pitch)")
             print("  SELECT (B8)     - Reset all servos to 90°")
             print("  START (B9)      - Save current position")
-            print("  Cross (B0)      - Decrease step size")
-            print("  Triangle (B2)   - Increase step size")
+            print("  Circle (B1)     - Decrease speed")
+            print("  Square (B3)     - Increase speed")
         else:
             print("KEYBOARD MODE (Controller not available)")
             print("="*60)
