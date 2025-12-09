@@ -54,7 +54,7 @@ CAMERA_FPS = 30
 # YOLO DETECTION SETTINGS
 # ============================================================================
 
-YOLO_CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence for detection
+YOLO_CONFIDENCE_THRESHOLD = 0.5  # Minimum confidence for detection (lowered for better detection)
 YOLO_IMAGE_SIZE = 320  # Input size for YOLO
 YOLO_MAX_DETECTIONS = 1  # Only detect top ingredient
 

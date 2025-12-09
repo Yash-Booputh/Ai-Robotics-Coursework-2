@@ -48,8 +48,14 @@ class ChefMateApp(tk.Tk):
         self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
         self.configure(bg=COLOR_BG_DARK)
 
-        # Start maximized
-        self.state('zoomed')
+        # Start maximized (Linux-compatible)
+        try:
+            self.attributes('-zoomed', True)  # Linux
+        except tk.TclError:
+            try:
+                self.state('zoomed')  # Windows
+            except tk.TclError:
+                pass  # If neither works, just use the geometry size
 
         # Configure styles
         self.configure_styles()
@@ -301,14 +307,9 @@ class ChefMateApp(tk.Tk):
             )
             return
 
-        if not self.vision.is_camera_active:
-            # Try to start camera
-            if not self.vision.start_camera():
-                messagebox.showerror(
-                    "Camera Error",
-                    "Failed to start camera!\n\nCamera is required for ingredient verification."
-                )
-                return
+        # DON'T start VisionSystem camera here - it conflicts with IntegratedPatrolGrabSystem!
+        # IntegratedPatrolGrabSystem creates its own camera when needed.
+        # VisionSystem camera is only for display on RobotScreen (will show SIMULATION MODE)
 
         # Show robot screen
         robot_screen = self.frames["RobotScreen"]

@@ -177,21 +177,17 @@ class IntegratedPatrolGrabSystem:
     def move_to_position(self, angles_dict, speed=MOVE_SPEED, description="position", exclude_gripper=False):
         """Move to a position defined by angles dictionary"""
         print(f"  Moving to {description}...")
-        print(f"  DEBUG: exclude_gripper = {exclude_gripper}")
 
         # Log which servos will move
         servos_to_move = []
         for servo_key, angle in angles_dict.items():
             servo_id = int(servo_key.split('_')[1])
             if exclude_gripper and servo_id == 6:
-                print(f"    ✓ SKIP Servo {servo_id} (gripper excluded, stays at {self.current_angles.get(6, 'unknown')}°)")
+                print(f"    SKIP Servo {servo_id} (gripper excluded, stays at {self.current_angles.get(6, 'unknown')}°)")
             else:
                 servos_to_move.append((servo_id, angle))
-                if servo_id == 6:
-                    print(f"    ⚠️  WARNING: Servo 6 (gripper) WILL MOVE to {angle}° (exclude_gripper={exclude_gripper})")
 
         # Execute movements
-        print(f"  DEBUG: Total servos to move: {len(servos_to_move)}")
         for servo_id, angle in servos_to_move:
             print(f"    MOVE Servo {servo_id} → {angle}°")
             self.move_servo(servo_id, angle, speed)
@@ -329,156 +325,72 @@ class IntegratedPatrolGrabSystem:
         print("\n  Executing grab sequence:")
 
         # Step 1: Open gripper FIRST (before any movement)
-        print("\n" + "="*60)
-        print("  [STEP 1/5] OPENING GRIPPER")
-        print("="*60)
+        print("\n  [1/5] Opening gripper...")
         current_gripper = self.current_angles.get(6, 'unknown')
         print(f"        Current gripper angle: {current_gripper}°")
-        print(f"        Target: {GRIPPER_OPEN}° (OPEN)")
+        print(f"        Moving gripper to: {GRIPPER_OPEN}° (OPEN)")
         self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
         time.sleep(1.0)
         actual_gripper = self.current_angles.get(6, 'unknown')
-        print(f"        ✓ Gripper now at: {actual_gripper}°")
-        print("="*60)
+        print(f"        Gripper now at: {actual_gripper}°")
 
         # Step 2: Move to Waypoint 1 (Safe Level Position - outside shelf)
-        print("\n" + "="*60)
-        print("  [STEP 2/5] MOVING TO WAYPOINT 1 (Safe Level Position)")
-        print("="*60)
-        print("        Location: Outside shelf, at cube height")
-        print("        Gripper behavior: EXCLUDED (stays OPEN at 0°)")
+        print("\n  [2/5] Moving to Safe Level Position (Waypoint 1)...")
+        print("        (Outside shelf, at cube height)")
         waypoint_1 = grab_data.get('waypoint_1_safe_level')
         if not waypoint_1:
             print("✗ Waypoint 1 not found!")
             return False
-        print("\n        Waypoint 1 Target Angles:")
+        print("        Waypoint 1 Target Angles:")
         for servo_key, angle in sorted(waypoint_1.items()):
             servo_id = int(servo_key.split('_')[1])
-            status = " (EXCLUDED - stays OPEN)" if servo_id == 6 else ""
-            print(f"          {servo_key}: {angle}°{status}")
-
-        gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"\n        Gripper angle BEFORE move: {gripper_before}°")
-        self.move_to_position(waypoint_1, SAFE_LEVEL_SPEED, "Waypoint 1 (safe level)", exclude_gripper=True)
-        gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
-        print(f"\n  Waiting {MOVEMENT_DELAY} seconds...")
-        print("="*60)
+            print(f"          {servo_key}: {angle}°")
+        self.move_to_position(waypoint_1, SAFE_LEVEL_SPEED, "safe level position", exclude_gripper=True)
+        print(f"  Waiting {MOVEMENT_DELAY} seconds...")
         time.sleep(MOVEMENT_DELAY)
 
         # Step 3: Move to Waypoint 2 (Grab Position - inside shelf)
-        print("\n" + "="*60)
-        print("  [STEP 3/5] MOVING TO WAYPOINT 2 (Grab Position)")
-        print("="*60)
-        print("        Location: Inside shelf, at cube")
-        print("        Gripper behavior: EXCLUDED (stays OPEN at 0°)")
+        print("\n  [3/5] Moving to Grab Position (Waypoint 2)...")
+        print("        (Inside shelf, at cube)")
+        print("        (Gripper will stay OPEN - servo 6 excluded)")
 
-        print("\n        Waypoint 2 Target Angles:")
+        print("        Waypoint 2 Target Angles:")
         for servo_key, angle in sorted(waypoint_2.items()):
             servo_id = int(servo_key.split('_')[1])
-            status = " (EXCLUDED - stays OPEN)" if servo_id == 6 else ""
-            print(f"          {servo_key}: {angle}°{status}")
+            status = "(EXCLUDED)" if servo_id == 6 else ""
+            print(f"          {servo_key}: {angle}° {status}")
 
-        gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"\n        Gripper angle BEFORE move: {gripper_before}°")
-        self.move_to_position(waypoint_2, GRAB_SPEED, "Waypoint 2 (grab position)", exclude_gripper=True)
-        gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
-        print(f"\n  Waiting {MOVEMENT_DELAY} seconds...")
-        print("="*60)
+        self.move_to_position(waypoint_2, GRAB_SPEED, "grab position", exclude_gripper=True)
+        print(f"  Waiting {MOVEMENT_DELAY} seconds...")
         time.sleep(MOVEMENT_DELAY)
 
         # Step 4: Close gripper to grab (use angle from waypoint 2)
-        print("\n" + "="*60)
-        print("  [STEP 4/5] CLOSING GRIPPER TO GRAB")
-        print("="*60)
-        gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"        Current gripper angle: {gripper_before}°")
-        print(f"        Target: {gripper_closed_angle}° (CLOSED)")
+        print(f"\n  [4/5] Closing gripper to grab (angle: {gripper_closed_angle}°)...")
         self.move_servo(6, gripper_closed_angle, GRAB_SPEED)
         time.sleep(2.0)
-        gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"        ✓ Gripper now at: {gripper_after}° (item grabbed!)")
-        print("="*60)
 
         # Step 5: Pickup sequence - return to Waypoint 1 with gripper CLOSED
-        print("\n" + "="*60)
-        print("  [STEP 5/5] PICKUP - Returning to Safe Level Position (Waypoint 1)")
-        print("="*60)
-        print("        Location: Outside shelf, at cube height (same as step 2)")
-        print("        Gripper behavior: EXCLUDED (stays CLOSED)")
-
-        print("\n        Waypoint 1 Target Angles:")
+        print("\n  [5/5] Pickup - returning to Safe Level Position (Waypoint 1)...")
+        print("        (Gripper stays CLOSED - servo 6 excluded)")
+        print("        Waypoint 1 Target Angles:")
         for servo_key, angle in sorted(waypoint_1.items()):
             servo_id = int(servo_key.split('_')[1])
-            status = " (EXCLUDED - stays CLOSED)" if servo_id == 6 else ""
-            print(f"          {servo_key}: {angle}°{status}")
-
-        # Move back to safe level position WITHOUT touching gripper
-        gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"\n        Gripper angle BEFORE move: {gripper_before}° (should be CLOSED ~{gripper_closed_angle}°)")
+            status = "(EXCLUDED - stays closed)" if servo_id == 6 else ""
+            print(f"          {servo_key}: {angle}° {status}")
         self.move_to_position(waypoint_1, SAFE_LEVEL_SPEED, "safe level position (pickup)", exclude_gripper=True)
-        gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
-
-        if gripper_after != gripper_before:
-            print(f"        ⚠️  WARNING: Gripper moved from {gripper_before}° to {gripper_after}°!")
-            print(f"        ⚠️  This should NOT happen with exclude_gripper=True!")
-
-        print(f"\n  Waiting {MOVEMENT_DELAY} seconds...")
-        print("="*60)
+        print(f"  Waiting {MOVEMENT_DELAY} seconds...")
         time.sleep(MOVEMENT_DELAY)
 
-        # Sequence complete - gripper remains CLOSED with item held
-        print("\n" + "="*60)
-        print("  ✓ Grab and pickup sequence complete!")
-        print("  ℹ Item is held securely in gripper")
-        print(f"  ℹ Gripper status: CLOSED at {self.current_angles.get(6, 'unknown')}°")
-        print("  ℹ Ready for delivery to basket")
-        print("="*60)
-        return True
-
-    def deliver_to_basket(self):
-        """
-        Move to delivery basket and drop the ingredient
-        Call this after execute_grab_sequence() succeeds
-        """
-        print("\n" + "="*60)
-        print("  [DELIVERY] Moving to basket...")
-        print("="*60)
-
-        # Preserve current servo 5 angle (gripper rotation) - don't change it during delivery
-        current_servo_5 = self.current_angles.get(5, 89)
-
-        # Delivery position from config (preserve servo 5, exclude servo 6)
-        # Original DELIVERY_POSITION = [90, 48, 35, 30, 270]
-        DELIVERY_POSITION = {
-            'servo_1': 90,
-            'servo_2': 48,
-            'servo_3': 35,
-            'servo_4': 30,
-            'servo_5': current_servo_5  # PRESERVE current angle, don't rotate
-        }
-
-        print("  Moving to delivery basket position...")
-        print(f"  Target position: {DELIVERY_POSITION}")
-        print(f"  Servo 5 preserved at: {current_servo_5}° (no rotation)")
-
-        # Move to delivery position WITHOUT opening gripper yet
-        self.move_to_position(DELIVERY_POSITION, MOVE_SPEED, "delivery basket", exclude_gripper=True)
-        time.sleep(0.5)
-
-        # Now open gripper to drop ingredient
-        print("\n  Opening gripper to drop ingredient...")
-        gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"  Gripper BEFORE: {gripper_before}° (should be CLOSED)")
+        # Final step: Open gripper after reaching safe position
+        print("\n  [FINAL] Opening gripper after reaching safe position...")
+        print(f"        Moving gripper to: {GRIPPER_OPEN}° (OPEN)")
         self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
         time.sleep(1.0)
-        gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"  Gripper AFTER: {gripper_after}° (OPEN - ingredient dropped!)")
+        actual_gripper = self.current_angles.get(6, 'unknown')
+        print(f"        Gripper now at: {actual_gripper}°")
 
-        print("\n  ✓ Ingredient delivered to basket!")
-        print("="*60)
+        print("\n  ✓ Grab and pickup sequence complete!")
+        print("  ℹ Item picked up and gripper opened at safe position")
         return True
 
     def patrol_and_find(self, target_ingredient):
@@ -492,17 +404,12 @@ class IntegratedPatrolGrabSystem:
 
         # Get sorted slot names
         slot_keys = sorted(self.slot_positions.keys())
-        print(f"\n📋 Patrol sequence: {slot_keys}")
-        print(f"   Total slots to check: {len(slot_keys)}\n")
 
-        for idx, slot_key in enumerate(slot_keys, 1):
-            print(f"\n{'='*60}")
-            print(f"[{slot_key}] (Slot {idx}/{len(slot_keys)})")
-            print(f"{'='*60}")
+        for slot_key in slot_keys:
+            print(f"\n[{slot_key}]")
 
             # Move to slot
             if not self.move_to_slot(slot_key):
-                print(f"  ✗ Failed to move to {slot_key}, skipping...")
                 continue
 
             # Detect what's there
@@ -524,20 +431,7 @@ class IntegratedPatrolGrabSystem:
                     print("\n" + "="*60)
                     print(f"✓✓✓ SUCCESS! {target_ingredient} GRABBED FROM {slot_key}")
                     print("="*60)
-
-                    # Deliver to basket
-                    delivery_success = self.deliver_to_basket()
-
-                    if delivery_success:
-                        print("\n" + "="*60)
-                        print(f"✓✓✓ {target_ingredient} DELIVERED TO BASKET!")
-                        print("="*60)
-                        return slot_key
-                    else:
-                        print("\n" + "="*60)
-                        print(f"✗ FAILED to deliver {target_ingredient} to basket")
-                        print("="*60)
-                        return None
+                    return slot_key
                 else:
                     print("\n" + "="*60)
                     print(f"✗ FAILED to grab {target_ingredient} from {slot_key}")

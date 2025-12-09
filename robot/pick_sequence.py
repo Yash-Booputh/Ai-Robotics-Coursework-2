@@ -17,7 +17,7 @@ from .vision_system import VisionSystem
 from config.recipes import get_pizza_ingredients, get_ingredient_display_name
 from config.positions import get_all_slot_names
 
-# Import the integrated patrol and grab system
+# Import the integrated patrol and grab system (working ONNX version)
 try:
     from integrated_patrol_grab import IntegratedPatrolGrabSystem
     PATROL_SYSTEM_AVAILABLE = True
@@ -56,16 +56,9 @@ class PickSequence:
         self.current_ingredient_index = 0
         self.total_ingredients = 0
 
-        # Initialize integrated patrol and grab system
+        # Robot patrol system will be initialized lazily when needed
         self.patrol_system = None
-        if PATROL_SYSTEM_AVAILABLE:
-            try:
-                self.logger.info("Initializing IntegratedPatrolGrabSystem...")
-                self.patrol_system = IntegratedPatrolGrabSystem()
-                self.logger.info("✓ IntegratedPatrolGrabSystem initialized")
-            except Exception as e:
-                self.logger.error(f"Failed to initialize IntegratedPatrolGrabSystem: {e}")
-                self.patrol_system = None
+        self.patrol_system_initialized = False
 
     def _update_status(self, message: str, status_type: str = "info"):
         """
@@ -78,6 +71,39 @@ class PickSequence:
         self.logger.info(message)
         if self.status_callback:
             self.status_callback(message, status_type)
+
+    def _initialize_patrol_system(self) -> bool:
+        """
+        Initialize the patrol system lazily (only when needed)
+
+        Returns:
+            bool: True if initialized successfully
+        """
+        if self.patrol_system_initialized:
+            return self.patrol_system is not None
+
+        if not PATROL_SYSTEM_AVAILABLE:
+            self.logger.warning("RobotPatrolSystem not available")
+            self.patrol_system_initialized = True
+            return False
+
+        try:
+            self.logger.info("Initializing IntegratedPatrolGrabSystem...")
+            self._update_status("🔧 Initializing patrol system...", "info")
+
+            self.patrol_system = IntegratedPatrolGrabSystem()
+            self.patrol_system_initialized = True
+
+            self.logger.info("✓ IntegratedPatrolGrabSystem initialized")
+            self._update_status("✅ Patrol system ready", "success")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize IntegratedPatrolGrabSystem: {e}")
+            self._update_status(f"❌ Patrol system init failed: {e}", "error")
+            self.patrol_system = None
+            self.patrol_system_initialized = True
+            return False
 
     def start_order(self, pizza_name: str) -> bool:
         """
@@ -98,9 +124,8 @@ class PickSequence:
             self._update_status("❌ Robot not connected", "error")
             return False
 
-        if not self.vision.is_camera_active:
-            self._update_status("❌ Camera not active", "error")
-            return False
+        # Note: Camera check removed - IntegratedPatrolGrabSystem creates its own camera
+        # VisionSystem camera is only used for display, not for order execution
 
         # Get ingredients needed
         self.ingredients_needed = get_pizza_ingredients(pizza_name)
@@ -199,21 +224,26 @@ class PickSequence:
         display_name = get_ingredient_display_name(ingredient)
 
         self._update_status(
-            f"📦 Finding and picking {display_name} ({self.current_ingredient_index + 1}/{self.total_ingredients})",
+            f"Finding and picking {display_name} ({self.current_ingredient_index + 1}/{self.total_ingredients})",
             "info"
         )
 
         try:
+            # Initialize patrol system on first use (lazy initialization)
+            if not self.patrol_system_initialized:
+                self._initialize_patrol_system()
+
             # Use IntegratedPatrolGrabSystem if available
             if self.patrol_system:
                 self.logger.info(f"Using IntegratedPatrolGrabSystem to find and grab {ingredient}")
-                self._update_status(f"🔍 Robot patrolling to find {display_name}...", "info")
+                self._update_status(f"Robot patrolling slots to find {display_name}...", "info")
 
                 # Call patrol_and_find which will automatically grab the ingredient when found
+                # This method will log detailed progress internally
                 found_slot = self.patrol_system.patrol_and_find(ingredient)
 
                 if found_slot:
-                    self._update_status(f"✅ {display_name} grabbed from {found_slot}", "success")
+                    self._update_status(f"{display_name} grabbed from {found_slot}", "success")
 
                     # Update progress
                     self.ingredients_picked.append(ingredient)
@@ -222,7 +252,7 @@ class PickSequence:
                     return True
                 else:
                     self._update_status(
-                        f"❌ {display_name} not found in any slot!",
+                        f"{display_name} not found in any slot!",
                         "error"
                     )
                     self.is_running = False

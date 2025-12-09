@@ -14,6 +14,7 @@ WORKFLOW FOR EACH SLOT:
    - Use controller/keyboard to position arm
    - Press TRIANGLE/Y button (or '2' key) to save WP2
 4. Press START (or SPACE) to save complete sequence
+   - Waypoint 3 (Delivery) is auto-generated from WP1
 
 CONTROLLER MAPPING (PlayStation/Xbox style):
 - Left Joystick: Servo 1 (horizontal) & Servo 2 (vertical) - Base & Shoulder
@@ -24,17 +25,17 @@ CONTROLLER MAPPING (PlayStation/Xbox style):
 - R2 (Button 7): Servo 4 increase (Wrist pitch)
 - CROSS/A (Button 0): Save Waypoint 1 (Safe Level)
 - TRIANGLE/Y (Button 2): Save Waypoint 2 (Grab Position)
+- Circle (Button 1): Servo 5 decrease (Gripper Rotation)
+- Square (Button 3): Servo 5 increase (Gripper Rotation)
 - SELECT (Button 8): Reset all servos to 90°
-- START (Button 9): Save complete grab sequence
-- Circle (Button 1): Decrease speed
-- Square (Button 3): Increase speed
+- START (Button 9): Save complete grab sequence (WP3 auto-generated from WP1)
 
 KEYBOARD CONTROLS (still available):
 - W/S/A/D/I/K/J/L/U/O/P/;: Move servos (U/O = GRIPPER ROTATION)
 - F1-F6: Go to slot 1-6 position
 - 1: Save Waypoint 1 (Safe Level Position)
 - 2: Save Waypoint 2 (Grab Position)
-- SPACE: Save complete grab sequence
+- SPACE: Save complete grab sequence (WP3 auto-generated from WP1)
 - +/-: Step size
 - [/]: Speed
 - Q: Quit
@@ -42,7 +43,8 @@ KEYBOARD CONTROLS (still available):
 IMPORTANT:
 - Waypoint 1: Position arm OUTSIDE the shelf, at the SAME HEIGHT as the cube
 - Waypoint 2: The actual grab position (endpoint) INSIDE the shelf, around the cube
-- The robot will move horizontally from WP1 to WP2 (minimal movement)
+- Waypoint 3: Auto-generated (same as WP1, used for delivery with gripper open)
+- The robot will: WP1 -> WP2 (grab & close gripper) -> WP1 -> open gripper (drop cube)
 
 INSTALLATION:
 pip install pygame
@@ -173,10 +175,11 @@ class GrabConfigurator:
         # Current slot being programmed
         self.current_slot = 1
 
-        # Waypoint system (like V2)
+        # Waypoint system (WP3 auto-generated from WP1)
         self.waypoints = {
             1: None,  # Safe Level Position (outside shelf, at cube height)
             2: None   # Grab Position (inside shelf, at cube endpoint)
+            # Waypoint 3 is auto-generated from WP1 (same position, gripper opens to drop)
         }
 
         # FPS tracking
@@ -282,7 +285,8 @@ class GrabConfigurator:
     def save_waypoint(self, waypoint_num):
         """Save current position as waypoint"""
         if waypoint_num not in [1, 2]:
-            print(f"✗ Invalid waypoint number: {waypoint_num}")
+            print(f"✗ Invalid waypoint number: {waypoint_num} (only 1 and 2 allowed)")
+            print("  Waypoint 3 is auto-generated from Waypoint 1")
             return False
 
         angles = self.get_current_position()
@@ -512,7 +516,7 @@ class GrabConfigurator:
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, slot_color, 2)
         y_offset += 22
 
-        # Waypoint status
+        # Waypoint status (only show WP1 and WP2, WP3 is auto-generated)
         for wp_num in [1, 2]:
             status = "✓" if self.waypoints[wp_num] else "✗"
             color = (0, 255, 0) if self.waypoints[wp_num] else (0, 0, 255)
@@ -572,12 +576,12 @@ class GrabConfigurator:
         if self.controller_enabled:
             instructions.extend([
                 "L-Stick:S1/S2 R-Stick:S5(ROT)/S6",
-                "CROSS:WP1 TRIANGLE:WP2 START:Save",
-                "L1/L2:S3 R1/R2:S4"
+                "CROSS:WP1 TRI:WP2 (WP3=Auto)",
+                "L1/L2:S3 R1/R2:S4 Circ/Sq:S5 START:Save"
             ])
         else:
             instructions.extend([
-                "F1-F6:Slot | 1:WP1 2:WP2",
+                "F1-F6:Slot | 1:WP1 2:WP2 (WP3=Auto)",
                 "U/O:S5(GRIP-ROT) | SPACE:Save | Q:Quit"
             ])
 
@@ -593,23 +597,27 @@ class GrabConfigurator:
         """Save complete grab sequence with waypoints for a specific slot"""
         print(f"\nSaving grab sequence for Slot {slot_number}...")
 
-        # Check all waypoints are configured
+        # Check required waypoints are configured (only 1 and 2, WP3 is auto-generated)
         missing = [i for i in [1, 2] if self.waypoints[i] is None]
         if missing:
             print(f"\n✗ Missing waypoints: {missing}")
-            print("  Configure waypoints 1 and 2 before saving")
+            print("  Configure waypoints 1 and 2 before saving (WP3 is auto-generated from WP1)")
             if 1 in missing:
-                print("  Press '1' to save Waypoint 1: Safe Level Position (outside shelf, at cube height)")
+                print("  Press '1' or CROSS to save Waypoint 1: Safe Level Position (outside shelf, at cube height)")
             if 2 in missing:
-                print("  Press '2' to save Waypoint 2: Grab Position (inside shelf, at cube)")
+                print("  Press '2' or TRIANGLE to save Waypoint 2: Grab Position (inside shelf, at cube)")
             return False
+
+        # Auto-generate WP3 from WP1 (same position, used for delivery with gripper open)
+        waypoint_3_delivery = self.waypoints[1].copy()
 
         slot_key = f"slot_{slot_number}"
         self.grab_positions[slot_key] = {
             "slot_number": slot_number,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "waypoint_1_safe_level": self.waypoints[1],
-            "waypoint_2_grab": self.waypoints[2]
+            "waypoint_2_grab": self.waypoints[2],
+            "waypoint_3_delivery": waypoint_3_delivery
         }
 
         if self.save_grab_positions():
@@ -620,11 +628,14 @@ class GrabConfigurator:
             print("\nSequence configured:")
             print("  1. Safe Level Position (outside shelf, at cube height)")
             print("  2. Grab Position (inside shelf, at cube)")
+            print("  3. Delivery Position (auto-generated from WP1)")
             print("\nExecution will:")
             print("  - Move to WP1 (safe level position)")
             print("  - Open gripper")
             print("  - Move to WP2 (grab position)")
             print("  - Close gripper")
+            print("  - Return to WP1")
+            print("  - Open gripper to drop cube")
             print("="*60)
 
             # Reset waypoints after saving
@@ -776,17 +787,24 @@ class GrabConfigurator:
             if num_buttons > 9 and self.is_button_pressed(9):
                 self.save_grab_position(self.current_slot)
 
-            # Waypoint saving buttons (Button 0 = WP1, Button 2 = WP2)
+            # Waypoint saving buttons (Button 0 = WP1, Button 2 = WP2, Button 3 held = WP3)
             if num_buttons > 0 and self.is_button_pressed(0, debounce_time=0.5):  # Cross/A - Save Waypoint 1
                 self.save_waypoint(1)
             if num_buttons > 2 and self.is_button_pressed(2, debounce_time=0.5):  # Triangle/Y - Save Waypoint 2
                 self.save_waypoint(2)
 
-            # Speed control buttons (Button 1 = decrease, Button 3 = increase)
-            if num_buttons > 1 and self.is_button_pressed(1):  # Button 1 - decrease speed
-                self.change_speed('down')
-            if num_buttons > 3 and self.is_button_pressed(3):  # Button 3 - increase speed
-                self.change_speed('up')
+            # Button 3 (Square) - Save WP3 if held long (0.5s), otherwise control servo
+            if num_buttons > 3:
+                if self.is_button_pressed(3, debounce_time=0.5):  # Long press = Save Waypoint 3
+                    self.save_waypoint(3)
+                elif self.joystick.get_button(3):  # Short hold = Servo 5 increase
+                    self.adjust_servo(5, s_step)
+                    servo_moved = True
+
+            # Servo 5 control button (Button 1 = decrease only)
+            if num_buttons > 1 and self.joystick.get_button(1):  # Button 1 (Circle) - Servo 5 decrease
+                self.adjust_servo(5, -s_step)
+                servo_moved = True
 
             # Update the last analog time if any servo was moved
             if servo_moved:
@@ -809,10 +827,10 @@ class GrabConfigurator:
             print("  R1/R2           - Servo 4 (Wrist pitch)")
             print("  CROSS/A (B0)    - Save Waypoint 1 (Safe Level)")
             print("  TRIANGLE/Y (B2) - Save Waypoint 2 (Grab Position)")
+            print("  Circle (B1)     - Servo 5 decrease (Gripper Rotation)")
+            print("  Square (B3)     - Hold 0.5s: Save WP3 | Tap: Servo 5 increase")
             print("  SELECT (B8)     - Reset all servos to 90°")
             print("  START (B9)      - Save complete grab sequence")
-            print("  Circle (B1)     - Decrease speed")
-            print("  Square (B3)     - Increase speed")
         else:
             print("KEYBOARD MODE (Controller not available)")
             print("="*60)
@@ -824,6 +842,7 @@ class GrabConfigurator:
         print("  P/;             - Servo 6 (Gripper open/close)")
         print("  1               - Save Waypoint 1 (Safe Level)")
         print("  2               - Save Waypoint 2 (Grab Position)")
+        print("  3               - Save Waypoint 3 (Delivery)")
         print("  SPACE           - Save complete grab sequence")
         print("  +/-             - Step size")
         print("  [ / ]           - Speed")
@@ -831,9 +850,10 @@ class GrabConfigurator:
         print("  Q               - Quit")
         print("\nWORKFLOW:")
         print("  1. Press F1-F6 to select slot")
-        print("  2. Configure Waypoint 1 (outside shelf, at cube height) - press 1 or CROSS/A")
-        print("  3. Configure Waypoint 2 (inside shelf, at cube) - press 2 or TRIANGLE/Y")
-        print("  4. Press SPACE or START to save complete sequence")
+        print("  2. Configure Waypoint 1 (outside shelf, at cube height) - press 1 or CROSS")
+        print("  3. Configure Waypoint 2 (inside shelf, at cube) - press 2 or TRIANGLE")
+        print("  4. Waypoint 3 is AUTO-GENERATED from Waypoint 1 (for delivery)")
+        print("  5. Press SPACE or START to save complete sequence")
         print("\nCurrent slot: {}".format(self.current_slot))
         print("="*60)
 
@@ -889,13 +909,13 @@ class GrabConfigurator:
                 # Slot selection (F1-F6)
                 if key >= 190 and key <= 195:
                     self.current_slot = key - 189
-                    # Reset waypoints when switching slots
+                    # Reset waypoints when switching slots (only WP1 and WP2, WP3 is auto-generated)
                     self.waypoints = {1: None, 2: None}
                     print(f"\n{'='*60}")
                     print(f"Selected Slot {self.current_slot}")
                     self.move_to_slot(self.current_slot)
 
-                # Save waypoints (1 and 2 keys)
+                # Save waypoints (1 and 2 keys only, WP3 is auto-generated)
                 elif key == ord('1'):
                     self.save_waypoint(1)
                 elif key == ord('2'):

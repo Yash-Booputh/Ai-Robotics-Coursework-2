@@ -1,6 +1,6 @@
 """
 ChefMate Robot Assistant - Robot Execution Screen
-Monitor robot picking ingredients with live camera feed
+Monitor robot picking ingredients with live camera feed and animated pizza making
 """
 
 import tkinter as tk
@@ -9,13 +9,16 @@ from PIL import Image, ImageTk
 import cv2
 import threading
 import time
+import os
+import math
+import random
 
 from config.settings import (
     COLOR_PRIMARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING,
-    COLOR_BG_DARK, COLOR_BG_MEDIUM, COLOR_TEXT_LIGHT,
+    COLOR_BG_DARK, COLOR_BG_MEDIUM, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK,
     FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
 )
-from config.recipes import get_pizza_ingredients, get_ingredient_display_name
+from config.recipes import get_pizza_ingredients, get_ingredient_display_name, PIZZA_RECIPES
 
 
 class RobotScreen(ttk.Frame):
@@ -42,7 +45,17 @@ class RobotScreen(ttk.Frame):
         self.is_running = False
         self.camera_active = False
 
+        # Pizza maker animation
+        self.pizza_images = {}
+        self.pizza_canvas = None
+        self.pizza_center_x = 225
+        self.pizza_center_y = 225
+        self.pizza_radius = 140
+        self.has_cheese = False
+        self.placed_ingredients = []
+
         self.create_widgets()
+        self.load_pizza_images()
 
     def create_widgets(self):
         """Create all UI widgets"""
@@ -58,7 +71,7 @@ class RobotScreen(ttk.Frame):
         # Title
         title_label = tk.Label(
             top_frame,
-            text="🤖 Robot Execution",
+            text="Robot Execution",
             font=(FONT_FAMILY, FONT_SIZE_HEADER, "bold"),
             bg=COLOR_BG_DARK,
             fg=COLOR_PRIMARY
@@ -78,7 +91,7 @@ class RobotScreen(ttk.Frame):
         # Stop button
         self.stop_btn = tk.Button(
             top_frame,
-            text="⏹ Stop",
+            text="Stop",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
             bg=COLOR_DANGER,
             fg=COLOR_TEXT_LIGHT,
@@ -91,31 +104,33 @@ class RobotScreen(ttk.Frame):
         )
         self.stop_btn.pack(side=tk.RIGHT)
 
-        # Middle section - Camera feed and progress
+        # Middle section - 3 columns: Camera, Pizza Maker, Progress
         middle_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
         middle_frame.pack(fill=tk.BOTH, expand=True, padx=20)
 
-        # Left: Camera feed
-        camera_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2)
-        camera_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        # Left: Camera status (compact)
+        camera_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2, width=320)
+        camera_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        camera_frame.pack_propagate(False)
 
         camera_title = tk.Label(
             camera_frame,
-            text="📷 Live Camera Feed",
+            text="Camera Status",
             font=(FONT_FAMILY, FONT_SIZE_LARGE, "bold"),
             bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
+            fg=COLOR_TEXT_DARK
         )
         camera_title.pack(pady=10)
 
-        # Camera display
+        # Camera display (smaller, fixed size)
         self.camera_label = tk.Label(
             camera_frame,
             bg=COLOR_BG_DARK,
-            width=640,
-            height=480
+            width=45,
+            height=8,
+            wraplength=350
         )
-        self.camera_label.pack(padx=10, pady=(0, 10))
+        self.camera_label.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
         # FPS label
         self.fps_label = tk.Label(
@@ -127,17 +142,53 @@ class RobotScreen(ttk.Frame):
         )
         self.fps_label.pack(pady=(0, 10))
 
+        # Center: Pizza Maker Animation
+        pizza_frame = tk.Frame(middle_frame, bg="#2C1810", relief=tk.RAISED, borderwidth=3, width=470)
+        pizza_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        pizza_frame.pack_propagate(False)
+
+        pizza_title = tk.Label(
+            pizza_frame,
+            text="Pizza Maker",
+            font=(FONT_FAMILY, FONT_SIZE_LARGE, "bold"),
+            bg="#2C1810",
+            fg="#FFD700"
+        )
+        pizza_title.pack(pady=10)
+
+        # Pizza canvas
+        self.pizza_canvas = tk.Canvas(
+            pizza_frame,
+            width=450,
+            height=450,
+            bg="#1A0F08",
+            highlightthickness=2,
+            highlightbackground="#8B4513"
+        )
+        self.pizza_canvas.pack(padx=10, pady=(0, 10))
+
+        # Pizza status label
+        self.pizza_status_label = tk.Label(
+            pizza_frame,
+            text="Waiting for order...",
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+            bg="#2C1810",
+            fg="#FFD700",
+            wraplength=430
+        )
+        self.pizza_status_label.pack(pady=(0, 10))
+
         # Right: Progress panel
-        progress_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, width=350, relief=tk.RAISED, borderwidth=2)
+        progress_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, width=320, relief=tk.RAISED, borderwidth=2)
         progress_frame.pack(side=tk.RIGHT, fill=tk.Y)
         progress_frame.pack_propagate(False)
 
         progress_title = tk.Label(
             progress_frame,
-            text="📋 Progress",
+            text="Progress",
             font=(FONT_FAMILY, FONT_SIZE_LARGE, "bold"),
             bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
+            fg=COLOR_TEXT_DARK
         )
         progress_title.pack(pady=10)
 
@@ -147,7 +198,7 @@ class RobotScreen(ttk.Frame):
             text="No order",
             font=(FONT_FAMILY, FONT_SIZE_LARGE),
             bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
+            fg=COLOR_TEXT_DARK
         )
         self.pizza_label.pack(pady=(0, 20))
 
@@ -157,7 +208,7 @@ class RobotScreen(ttk.Frame):
             progress_frame,
             variable=self.progress_var,
             maximum=100,
-            length=300,
+            length=350,
             mode='determinate'
         )
         self.progress_bar.pack(pady=10)
@@ -168,7 +219,7 @@ class RobotScreen(ttk.Frame):
             text="0 / 0 ingredients",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
+            fg=COLOR_TEXT_DARK
         )
         self.progress_text.pack(pady=(0, 20))
 
@@ -178,7 +229,7 @@ class RobotScreen(ttk.Frame):
             text="Ingredients:",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
             bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
+            fg=COLOR_TEXT_DARK
         )
         checklist_label.pack(pady=(10, 5))
 
@@ -217,10 +268,10 @@ class RobotScreen(ttk.Frame):
 
         log_title = tk.Label(
             log_frame,
-            text="📄 Activity Log",
+            text="Activity Log",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
             bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT
+            fg=COLOR_TEXT_DARK
         )
         log_title.pack(anchor="w", padx=10, pady=(5, 0))
 
@@ -233,12 +284,13 @@ class RobotScreen(ttk.Frame):
 
         self.log_text = tk.Text(
             log_container,
-            bg=COLOR_BG_DARK,
-            fg=COLOR_TEXT_LIGHT,
+            bg="#FFFFFF",
+            fg=COLOR_TEXT_DARK,
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             height=6,
             yscrollcommand=log_scrollbar.set,
-            state=tk.DISABLED
+            state=tk.DISABLED,
+            wrap=tk.WORD
         )
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         log_scrollbar.config(command=self.log_text.yview)
@@ -249,7 +301,7 @@ class RobotScreen(ttk.Frame):
 
         self.home_btn = tk.Button(
             bottom_frame,
-            text="🏠 Home",
+            text="Home",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
             bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_LIGHT,
@@ -286,11 +338,16 @@ class RobotScreen(ttk.Frame):
         # Create checklist
         self.create_checklist()
 
+        # Initialize pizza maker animation
+        self.has_cheese = False
+        self.placed_ingredients = []
+        self.draw_initial_pizza()
+
         # Start camera
         self.start_camera()
 
         # Log start
-        self.add_log(f"🚀 Starting order: {pizza_name}")
+        self.add_log(f"Starting order: {pizza_name}")
         self.add_log(f"Ingredients needed: {len(self.ingredients_list)}")
 
         # Start execution in thread
@@ -310,11 +367,11 @@ class RobotScreen(ttk.Frame):
 
             status_label = tk.Label(
                 item_frame,
-                text="⭕",
-                font=(FONT_FAMILY, 14),
+                text="[ ]",
+                font=(FONT_FAMILY, FONT_SIZE_NORMAL),
                 bg=COLOR_BG_MEDIUM,
                 fg="#7F8C8D",
-                width=2
+                width=3
             )
             status_label.pack(side=tk.LEFT)
 
@@ -323,7 +380,7 @@ class RobotScreen(ttk.Frame):
                 text=get_ingredient_display_name(ingredient),
                 font=(FONT_FAMILY, FONT_SIZE_NORMAL),
                 bg=COLOR_BG_MEDIUM,
-                fg=COLOR_TEXT_LIGHT,
+                fg=COLOR_TEXT_DARK,
                 anchor="w"
             )
             name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -340,16 +397,16 @@ class RobotScreen(ttk.Frame):
             )
 
             if success:
-                self.add_log("✅ Order completed successfully!")
+                self.add_log("Order completed successfully!")
                 self.status_label.configure(text="Completed", fg=COLOR_SUCCESS)
-                messagebox.showinfo("Success", f"{self.pizza_name} is ready! 🎉")
+                messagebox.showinfo("Success", f"{self.pizza_name} is ready!")
             else:
-                self.add_log("❌ Order failed")
+                self.add_log("Order failed")
                 self.status_label.configure(text="Failed", fg=COLOR_DANGER)
                 messagebox.showerror("Error", "Order execution failed")
 
         except Exception as e:
-            self.add_log(f"❌ Error: {str(e)}")
+            self.add_log(f"Error: {str(e)}")
             self.status_label.configure(text="Error", fg=COLOR_DANGER)
             messagebox.showerror("Error", f"Execution error: {str(e)}")
 
@@ -372,11 +429,19 @@ class RobotScreen(ttk.Frame):
         # Add to log
         self.add_log(message)
 
-        # Update checklist if ingredient picked
-        if "Picked" in message or "delivered" in message:
+        # Update checklist and pizza animation if ingredient picked
+        if "Picked" in message or "delivered" in message or "grabbed" in message.lower():
+            # Check which ingredient was grabbed
+            if self.current_index < len(self.ingredients_list):
+                ingredient = self.ingredients_list[self.current_index]
+
+                # Add ingredient to pizza animation
+                self.add_pizza_ingredient(ingredient)
+
+            # Update checklist
             for idx, (status_label, name_label) in enumerate(self.checklist_items):
                 if idx < self.current_index:
-                    status_label.configure(text="✅", fg=COLOR_SUCCESS)
+                    status_label.configure(text="[X]", fg=COLOR_SUCCESS)
 
             # Update progress
             self.current_index += 1
@@ -384,41 +449,70 @@ class RobotScreen(ttk.Frame):
             self.progress_var.set(progress)
             self.progress_text.configure(text=f"{self.current_index} / {len(self.ingredients_list)} ingredients")
 
+            # Check if pizza is complete
+            if self.current_index >= len(self.ingredients_list):
+                self.mark_pizza_complete()
+
     def start_camera(self):
-        """Start camera feed"""
+        """Start camera feed display from IntegratedPatrolGrabSystem"""
         if self.camera_active:
             return
 
         self.camera_active = True
-        threading.Thread(target=self.camera_loop, daemon=True).start()
+        self.camera_thread = threading.Thread(target=self.camera_loop, daemon=True)
+        self.camera_thread.start()
 
     def camera_loop(self):
-        """Camera feed loop"""
+        """Camera feed loop - displays feed from IntegratedPatrolGrabSystem's camera"""
+        import time
+        last_time = time.time()
+        frame_count = 0
+        fps = 0
+
         while self.camera_active and self.is_running:
             try:
-                # Get frame from vision system
-                frame, detection = self.controller.get_camera_frame()
+                # Try to get frame from controller's pick_sequence patrol_system
+                if (hasattr(self.controller, 'pick_sequence') and
+                    self.controller.pick_sequence and
+                    hasattr(self.controller.pick_sequence, 'patrol_system') and
+                    self.controller.pick_sequence.patrol_system):
 
-                if frame is not None:
-                    # Convert to PhotoImage
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    img = Image.fromarray(frame_rgb)
-                    img = img.resize((640, 480), Image.Resampling.LANCZOS)
-                    photo = ImageTk.PhotoImage(img)
+                    patrol_system = self.controller.pick_sequence.patrol_system
 
-                    # Update camera label
-                    self.camera_label.configure(image=photo)
-                    self.camera_label.image = photo
+                    # Access IntegratedPatrolGrabSystem's camera directly
+                    if hasattr(patrol_system, 'cap') and patrol_system.cap:
+                        ret, frame = patrol_system.cap.read()
 
-                    # Update FPS
-                    fps = self.controller.get_camera_fps()
-                    self.fps_label.configure(text=f"FPS: {fps:.1f}")
+                        if ret and frame is not None:
+                            # Convert to PhotoImage
+                            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                            img = Image.fromarray(frame_rgb)
+                            img = img.resize((380, 285), Image.Resampling.LANCZOS)
+                            photo = ImageTk.PhotoImage(img)
+
+                            # Update camera label
+                            self.camera_label.configure(image=photo, text="")
+                            self.camera_label.image = photo
+
+                            # Calculate FPS
+                            frame_count += 1
+                            current_time = time.time()
+                            if current_time - last_time >= 1.0:
+                                fps = frame_count / (current_time - last_time)
+                                self.fps_label.configure(text=f"FPS: {fps:.1f}")
+                                frame_count = 0
+                                last_time = current_time
 
                 time.sleep(0.03)  # ~30 FPS
 
             except Exception as e:
-                print(f"Camera error: {e}")
-                time.sleep(0.1)
+                # Camera not available yet - show waiting message
+                self.camera_label.configure(
+                    text="Waiting for camera...",
+                    font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+                    fg=COLOR_TEXT_DARK
+                )
+                time.sleep(0.5)
 
         self.camera_active = False
 
@@ -435,7 +529,7 @@ class RobotScreen(ttk.Frame):
         )
 
         if response:
-            self.add_log("⏹ Stopping execution...")
+            self.add_log("Stopping execution...")
             self.is_running = False
             self.controller.stop_pick_sequence()
             self.status_label.configure(text="Stopped", fg=COLOR_WARNING)
@@ -454,6 +548,240 @@ class RobotScreen(ttk.Frame):
         self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
         self.log_text.see(tk.END)
         self.log_text.configure(state=tk.DISABLED)
+
+    # =========================================================================
+    # PIZZA MAKER ANIMATION METHODS
+    # =========================================================================
+
+    def load_pizza_images(self):
+        """Load all pizza base and ingredient images"""
+        pizza_base_dir = "assets/pizza_bases"
+        ingredient_dir = "assets/ingredients"
+
+        pizza_base_size = (280, 280)
+        ingredient_size = (55, 55)
+
+        # Pizza base images
+        base_images = {
+            'dough_sauce': 'dough_with_sauce',
+            'dough_cheese': 'dough_with_cheese'
+        }
+
+        for key, base_name in base_images.items():
+            path = self.find_image_file(pizza_base_dir, base_name)
+            if path:
+                try:
+                    with Image.open(path) as img:
+                        if img.mode != 'RGBA':
+                            img = img.convert('RGBA')
+                        img_resized = img.resize(pizza_base_size, Image.Resampling.LANCZOS)
+                        self.pizza_images[key] = ImageTk.PhotoImage(img_resized)
+                except Exception as e:
+                    print(f"Error loading {base_name}: {e}")
+
+        # Ingredient images
+        ingredient_mappings = {
+            'fresh_tomato': 'tomato',
+            'basil': 'basil',
+            'anchovies': 'anchovies',
+            'chicken': 'chicken',
+            'shrimp': 'shrimp',
+            'cheese': 'cheese'  # In case we need it
+        }
+
+        for key, base_name in ingredient_mappings.items():
+            path = self.find_image_file(ingredient_dir, base_name)
+            if path:
+                try:
+                    with Image.open(path) as img:
+                        if img.mode != 'RGBA':
+                            img = img.convert('RGBA')
+                        img_resized = img.resize(ingredient_size, Image.Resampling.LANCZOS)
+                        self.pizza_images[key] = ImageTk.PhotoImage(img_resized)
+                except Exception as e:
+                    print(f"Error loading {base_name}: {e}")
+
+    def find_image_file(self, directory, base_name):
+        """Find image file with either .png or .jpg extension"""
+        if not os.path.exists(directory):
+            return None
+
+        for ext in ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG']:
+            filename = base_name + ext
+            path = os.path.join(directory, filename)
+            if os.path.exists(path):
+                return path
+        return None
+
+    def draw_initial_pizza(self):
+        """Draw the initial pizza base on canvas"""
+        if not self.pizza_canvas:
+            return
+
+        # Clear canvas
+        self.pizza_canvas.delete("all")
+
+        # Oven background
+        self.pizza_canvas.create_oval(
+            self.pizza_center_x - 160,
+            self.pizza_center_y - 160,
+            self.pizza_center_x + 160,
+            self.pizza_center_y + 160,
+            fill="#3D2817",
+            outline="#8B4513",
+            width=2,
+            tags="oven"
+        )
+
+        # Pizza base - start with sauce
+        if 'dough_sauce' in self.pizza_images:
+            self.pizza_canvas.create_image(
+                self.pizza_center_x,
+                self.pizza_center_y,
+                image=self.pizza_images['dough_sauce'],
+                tags="pizza_base"
+            )
+        else:
+            # Fallback if image not found
+            self.pizza_canvas.create_oval(
+                self.pizza_center_x - 140,
+                self.pizza_center_y - 140,
+                self.pizza_center_x + 140,
+                self.pizza_center_y + 140,
+                fill="#DC143C",
+                outline="#8B0000",
+                width=3,
+                tags="pizza_base"
+            )
+
+        # Ensure proper layering
+        self.pizza_canvas.tag_lower("pizza_base")
+        self.pizza_canvas.tag_lower("oven")
+
+        self.pizza_status_label.config(text="Preparing the dough...")
+
+    def add_pizza_ingredient(self, ingredient_name):
+        """Add an ingredient to the pizza animation"""
+        if not self.pizza_canvas:
+            return
+
+        display_name = get_ingredient_display_name(ingredient_name)
+        self.pizza_status_label.config(text=f"Adding {display_name}...")
+
+        if ingredient_name == "cheese":
+            self.add_cheese_layer()
+        else:
+            self.add_ingredient_pieces(ingredient_name)
+
+        self.update()
+
+    def add_cheese_layer(self):
+        """Add cheese by switching to dough_with_cheese image"""
+        if self.has_cheese:
+            return
+
+        self.has_cheese = True
+
+        if 'dough_cheese' in self.pizza_images:
+            self.pizza_canvas.delete("pizza_base")
+            self.pizza_canvas.create_image(
+                self.pizza_center_x,
+                self.pizza_center_y,
+                image=self.pizza_images['dough_cheese'],
+                tags="pizza_base"
+            )
+            # Ensure proper layering
+            self.pizza_canvas.tag_lower("pizza_base")
+            self.pizza_canvas.tag_lower("oven")
+
+    def add_ingredient_pieces(self, ingredient_name):
+        """Add multiple pieces of an ingredient in circular pattern"""
+        if ingredient_name not in self.pizza_images:
+            return
+
+        # Determine number of pieces
+        counts = {
+            'fresh_tomato': 7,
+            'basil': 6,
+            'anchovies': 7,
+            'chicken': 8,
+            'shrimp': 7
+        }
+
+        num_pieces = counts.get(ingredient_name, 6)
+
+        # Get circular positions
+        positions = self.distribute_ingredients_circular(num_pieces)
+
+        # Place each piece
+        for x, y in positions:
+            self.pizza_canvas.create_image(
+                x, y,
+                image=self.pizza_images[ingredient_name],
+                tags=f"ingredient_{ingredient_name}"
+            )
+            self.placed_ingredients.append((x, y))
+
+    def distribute_ingredients_circular(self, num_pieces):
+        """Distribute ingredients in circular pattern"""
+        positions = []
+
+        if num_pieces <= 1:
+            positions.append((self.pizza_center_x, self.pizza_center_y))
+        elif num_pieces <= 6:
+            # Single ring
+            for i in range(num_pieces):
+                angle = (2 * math.pi * i / num_pieces) + random.uniform(-0.1, 0.1)
+                radius = self.pizza_radius * 0.6
+                x = self.pizza_center_x + radius * math.cos(angle)
+                y = self.pizza_center_y + radius * math.sin(angle)
+                positions.append((x, y))
+        else:
+            # Two rings
+            inner_count = num_pieces // 2
+            outer_count = num_pieces - inner_count
+
+            # Inner ring
+            for i in range(inner_count):
+                angle = (2 * math.pi * i / inner_count) + random.uniform(-0.1, 0.1)
+                radius = self.pizza_radius * 0.4
+                x = self.pizza_center_x + radius * math.cos(angle)
+                y = self.pizza_center_y + radius * math.sin(angle)
+                positions.append((x, y))
+
+            # Outer ring
+            for i in range(outer_count):
+                angle = (2 * math.pi * i / outer_count) + random.uniform(-0.1, 0.1)
+                radius = self.pizza_radius * 0.75
+                x = self.pizza_center_x + radius * math.cos(angle)
+                y = self.pizza_center_y + radius * math.sin(angle)
+                positions.append((x, y))
+
+        return positions
+
+    def mark_pizza_complete(self):
+        """Mark pizza as complete"""
+        self.pizza_status_label.config(
+            text=f"Pizza Complete! {self.pizza_name} is ready!",
+            fg="#4CAF50"
+        )
+
+        # Add sparkles
+        sparkle_positions = [
+            (self.pizza_center_x - 180, self.pizza_center_y - 180),
+            (self.pizza_center_x + 180, self.pizza_center_y - 180),
+            (self.pizza_center_x - 180, self.pizza_center_y + 180),
+            (self.pizza_center_x + 180, self.pizza_center_y + 180),
+        ]
+
+        for x, y in sparkle_positions:
+            self.pizza_canvas.create_text(
+                x, y, text="*", font=("Arial", 30), fill="#FFD700"
+            )
+
+    # =========================================================================
+    # END PIZZA MAKER ANIMATION METHODS
+    # =========================================================================
 
     def go_home(self):
         """Go back to home screen"""

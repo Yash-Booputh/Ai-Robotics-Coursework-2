@@ -262,13 +262,15 @@ class LiveCameraScreen(ttk.Frame):
             messagebox.showerror("Error", f"Failed to start camera:\n{str(e)}")
 
     def stop_camera(self):
-        """Stop camera"""
+        """Stop camera display (but keep shared camera running for other screens)"""
         self.camera_active = False
 
         if self.camera_thread:
             self.camera_thread.join(timeout=1.0)
 
-        self.controller.stop_vision_camera()
+        # NOTE: We do NOT stop the shared VisionSystem camera here
+        # because other screens (like RobotScreen) might need it.
+        # The camera is managed at the application level in main.py
 
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
@@ -363,4 +365,8 @@ class LiveCameraScreen(ttk.Frame):
 
     def on_hide(self):
         """Called when screen is hidden"""
-        self.stop_camera()
+        # Stop the display loop but DON'T stop the shared camera
+        # The camera might be needed by other screens (e.g., RobotScreen)
+        self.camera_active = False
+        if self.camera_thread:
+            self.camera_thread.join(timeout=1.0)
