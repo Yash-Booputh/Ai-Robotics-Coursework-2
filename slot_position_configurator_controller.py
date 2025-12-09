@@ -5,6 +5,14 @@ Slot Position Configurator for DOFBOT - WITH GAME CONTROLLER SUPPORT (PYGAME)
 ===============================================================================
 This tool allows GAME CONTROLLER positioning of the robot arm and saving servo angles for each slot.
 
+WORKFLOW:
+1. Position the arm for Slot 1
+2. Press F2 - auto-saves Slot 1, switches to Slot 2, loads existing Slot 2 position if available
+3. Position the arm for Slot 2
+4. Press F3 - auto-saves Slot 2, switches to Slot 3, loads existing Slot 3 position if available
+5. Continue for all slots...
+6. When at Slot 6, press SPACE to save (since there's no F7)
+
 CONTROLLER MAPPING (PlayStation/Xbox style):
 - Left Joystick: Servo 1 (horizontal) & Servo 2 (vertical) - Base & Shoulder
 - Right Joystick: Servo 5 (vertical) & Servo 6 (horizontal) - Wrist & Gripper
@@ -13,18 +21,22 @@ CONTROLLER MAPPING (PlayStation/Xbox style):
 - R1 (Button 5): Servo 4 decrease (Wrist pitch)
 - R2 (Button 7): Servo 4 increase (Wrist pitch)
 - SELECT (Button 8): Reset all servos to 90°
-- START (Button 9): Save current position to selected slot
 - Circle (Button 1): Decrease speed
 - Square (Button 3): Increase speed
 
-KEYBOARD CONTROLS (still available):
+KEYBOARD CONTROLS:
 - W/S/A/D/I/K/J/L/U/O/P/;: Move servos
-- F1-F6: Select slot 1-6
-- SPACE: Save position
+- F1-F6: Select slot (auto-saves previous slot, loads new slot)
+- SPACE: Manually save current slot (useful for Slot 6)
 - +/-: Step size
 - [/]: Speed
 - T: Toggle detection
 - Q: Quit
+
+IMPORTANT:
+- Each slot position auto-saves to JSON when switching slots (F1-F6)
+- Use SPACE to save Slot 6 since there's no F7 button
+- Existing positions are loaded automatically when selecting a slot
 
 INSTALLATION:
 pip install pygame
@@ -679,12 +691,12 @@ class SlotConfigurator:
         if self.controller_enabled:
             instructions.extend([
                 "L-Stick:S1/S2 R-Stick:S5/S6",
-                "L1/L2:S3 R1/R2:S4 START:Save"
+                "F1-F6:Slot(auto-save) SPACE:Save"
             ])
         else:
             instructions.extend([
                 "WASD/IKJLUO/P;:Move",
-                "F1-F6:Slot | SPACE:Save | Q:Quit"
+                "F1-F6:Slot(auto-save) | SPACE:Save | Q:Quit"
             ])
 
         y_offset = h - 40
@@ -696,7 +708,7 @@ class SlotConfigurator:
         return frame
 
     def save_slot_position(self, slot_number):
-        """Save current position for a specific slot"""
+        """Save current position for a specific slot with detailed feedback"""
         print(f"\nSaving current position to Slot {slot_number}...")
 
         angles = {f"servo_{i}": self.current_angles[i] for i in range(1, NUM_SERVOS + 1)}
@@ -706,11 +718,36 @@ class SlotConfigurator:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        print(f"\n✓ Slot {slot_number} position saved:")
-        for servo, angle in angles.items():
-            print(f"  {servo}: {angle}°")
+        if self.save_positions():
+            print(f"✓ Slot {slot_number} position saved to {SLOTS_FILE}")
+            print(f"\nServo Angles:")
+            for servo_id in range(1, NUM_SERVOS + 1):
+                angle = self.current_angles[servo_id]
+                print(f"  Servo {servo_id}: {angle}°")
+            return True
+        else:
+            print(f"✗ Failed to save Slot {slot_number}")
+            return False
 
-        return self.save_positions()
+    def load_and_move_to_slot(self, slot_number):
+        """Load existing slot position and move arm to it"""
+        slot_key = f"slot_{slot_number}"
+
+        if slot_key in self.slot_positions:
+            print(f"\n✓ Loading existing position for Slot {slot_number}...")
+            slot_data = self.slot_positions[slot_key]
+            angles = slot_data.get('angles', {})
+
+            # Move each servo to the saved position
+            for servo_key, angle in angles.items():
+                servo_id = int(servo_key.split('_')[1])
+                self.move_servo(servo_id, angle)
+                time.sleep(0.05)
+
+            time.sleep(0.3)
+            print(f"✓ Moved to Slot {slot_number} saved position")
+        else:
+            print(f"\n✓ No existing position for Slot {slot_number} - starting fresh")
 
     def is_button_pressed(self, button_id, debounce_time=0.3):
         """Check if button is pressed with debouncing"""
@@ -849,10 +886,6 @@ class SlotConfigurator:
                 self.arm.Arm_serial_servo_write6(90, 90, 90, 90, 90, 90, 1000)
                 time.sleep(1)
 
-            # START button (9) - Save position
-            if num_buttons > 9 and self.is_button_pressed(9):
-                self.save_slot_position(self.current_slot)
-
             # Speed control buttons (Button 1 = decrease, Button 3 = increase)
             if num_buttons > 1 and self.is_button_pressed(1):  # Button 1 - decrease speed
                 self.change_speed('down')
@@ -886,7 +919,6 @@ class SlotConfigurator:
             print("  L1/L2           - Servo 3 (Elbow)")
             print("  R1/R2           - Servo 4 (Wrist pitch)")
             print("  SELECT (B8)     - Reset all servos to 90°")
-            print("  START (B9)      - Save current position")
             print("  Circle (B1)     - Decrease speed")
             print("  Square (B3)     - Increase speed")
         else:
@@ -895,12 +927,17 @@ class SlotConfigurator:
 
         print("\nKEYBOARD CONTROLS:")
         print("  W/S/A/D/I/K/J/L/U/O/P/; - Move servos")
-        print("  F1-F6           - Select slot 1-6")
-        print("  SPACE           - Save position")
+        print("  F1-F6           - Select slot (auto-saves previous, loads new)")
+        print("  SPACE           - Manually save current slot (useful for Slot 6)")
         print("  +/-             - Step size")
         print("  [ / ]           - Speed")
         print("  T               - Toggle detection")
         print("  Q               - Quit")
+        print("\nWORKFLOW:")
+        print("  1. Position arm for Slot 1")
+        print("  2. Press F2 - saves Slot 1, switches to Slot 2")
+        print("  3. Continue for all slots...")
+        print("  4. Press SPACE to save Slot 6 (no F7)")
         print("="*60)
 
         try:
@@ -1050,10 +1087,24 @@ class SlotConfigurator:
                 elif key == ord(']') or key == ord('}'):
                     self.change_speed('up')
 
-                # Slot selection (F1-F6)
+                # Slot selection (F1-F6) - Auto-save previous slot before switching
                 elif key >= 190 and key <= 195:
-                    self.current_slot = key - 189
+                    new_slot = key - 189
+
+                    # Auto-save current slot before switching (if not the first selection)
+                    if self.current_slot is not None:
+                        print(f"\n{'='*60}")
+                        self.save_slot_position(self.current_slot)
+                        print(f"{'='*60}")
+
+                    # Switch to new slot
+                    self.current_slot = new_slot
+                    print(f"\n{'='*60}")
                     print(f"Selected Slot {self.current_slot}")
+                    print(f"{'='*60}")
+
+                    # Load and move to saved position if it exists
+                    self.load_and_move_to_slot(self.current_slot)
 
                 # Save position (SPACE)
                 elif key == 32:
