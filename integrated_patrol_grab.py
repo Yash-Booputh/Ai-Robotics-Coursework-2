@@ -73,6 +73,9 @@ CLASS_NAMES = [
 GRIPPER_OPEN = 0      # 0° = OPEN
 # GRIPPER_CLOSED is dynamically determined from waypoint_2 servo_6 angle
 
+# Home position (rest position for robot arm - 6 servos)
+HOME_POSITION = [90, 164, 18, 0, 90, 90]
+
 
 # ============================================================================
 # INTEGRATED PATROL & GRAB SYSTEM
@@ -211,6 +214,36 @@ class IntegratedPatrolGrabSystem:
         # EXCLUDE GRIPPER when moving to scan position
         self.move_to_position(angles, PATROL_SPEED, f"{slot_key} scan position", exclude_gripper=True)
         return True
+
+    def move_to_home(self):
+        """Move robot to home/rest position"""
+        print("\n  Moving to home position...")
+        home_dict = {
+            'servo_1': HOME_POSITION[0],
+            'servo_2': HOME_POSITION[1],
+            'servo_3': HOME_POSITION[2],
+            'servo_4': HOME_POSITION[3],
+            'servo_5': HOME_POSITION[4],
+            'servo_6': HOME_POSITION[5]
+        }
+        self.move_to_position(home_dict, MOVE_SPEED, "home position", exclude_gripper=False)
+        print("  ✓ At home position")
+
+    def check_connection(self):
+        """Check if robot arm is connected"""
+        return self.arm is not None
+
+    def buzzer_beep(self, duration=1):
+        """
+        Sound the buzzer
+
+        Args:
+            duration: Beep duration (1-255, each unit is ~0.1s)
+        """
+        try:
+            self.arm.Arm_Buzzer_On(duration)
+        except Exception as e:
+            print(f"  Warning: Buzzer failed: {e}")
 
     def preprocess_frame(self, frame):
         """Preprocess frame for YOLO"""

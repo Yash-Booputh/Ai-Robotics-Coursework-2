@@ -16,12 +16,11 @@ except ImportError:
     # Uncomment line below to see warning:
     # print("⚠️  Warning: Arm_Lib not found. Robot control will be simulated.")
 
-from config.positions import (
-    HOME_POSITION, DELIVERY_POSITION,
-    GRIPPER_POSITIONS, MOVEMENT_SPEEDS, SLOT_POSITIONS,
-    get_slot_position, get_all_slot_names
-)
-from config.settings import GRIPPER_DELAY, MAX_RETRIES
+# NOTE: This controller is only used for minimal utility functions:
+# - check_connection() - Check if robot is connected
+# - buzzer_beep() - Audio feedback
+#
+# ALL robot control (movement, positions, grabbing) is handled by IntegratedPatrolGrabSystem
 
 
 class DofbotController:
@@ -56,9 +55,6 @@ class DofbotController:
                 time.sleep(0.1)
                 self.is_connected = True
                 self.logger.info("✅ Dofbot connected successfully")
-
-                # Move to home position
-                self.move_to_home()
                 return True
             else:
                 self.logger.warning("Arm_Lib not available - running in simulation mode")
@@ -75,7 +71,6 @@ class DofbotController:
         try:
             if self.is_connected and self.arm:
                 self.logger.info("Disconnecting from Dofbot...")
-                self.move_to_home()
                 self.arm = None
                 self.is_connected = False
                 self.logger.info("Dofbot disconnected")
@@ -160,48 +155,25 @@ class DofbotController:
             raise
 
     def move_to_home(self):
-        """Move robot to home/rest position"""
-        self.logger.info("Moving to home position...")
-        self.move_servos_array(HOME_POSITION, MOVEMENT_SPEEDS["normal"])
-        self.gripper_open()
-        self.is_busy = False
-        self.logger.info("✅ At home position")
+        """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles home position.
+        """
+        self.logger.error("move_to_home() is deprecated. Use IntegratedPatrolGrabSystem.move_to_home() instead.")
+        return False
 
     def gripper_open(self):
-        """Open the gripper"""
-        if self.gripper_state == "open":
-            return  # Already open
-
-        self.logger.info("Opening gripper...")
-        angle = GRIPPER_POSITIONS["open"]
-        servo_id = GRIPPER_POSITIONS["servo_id"]
-
-        if self.check_connection():
-            self.arm.Arm_serial_servo_write(servo_id, angle, 400)
-        else:
-            self.logger.warning(f"Simulating: Gripper open to {angle}°")
-
-        time.sleep(GRIPPER_DELAY)
-        self.gripper_state = "open"
-        self.logger.info("✅ Gripper opened")
+        """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles gripper control.
+        """
+        self.logger.error("gripper_open() is deprecated. Use IntegratedPatrolGrabSystem instead.")
+        return False
 
     def gripper_close(self):
-        """Close the gripper"""
-        if self.gripper_state == "closed":
-            return  # Already closed
-
-        self.logger.info("Closing gripper...")
-        angle = GRIPPER_POSITIONS["closed"]
-        servo_id = GRIPPER_POSITIONS["servo_id"]
-
-        if self.check_connection():
-            self.arm.Arm_serial_servo_write(servo_id, angle, 400)
-        else:
-            self.logger.warning(f"Simulating: Gripper close to {angle}°")
-
-        time.sleep(GRIPPER_DELAY)
-        self.gripper_state = "closed"
-        self.logger.info("✅ Gripper closed")
+        """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles gripper control.
+        """
+        self.logger.error("gripper_close() is deprecated. Use IntegratedPatrolGrabSystem instead.")
+        return False
 
     def buzzer_beep(self, duration: int = 1):
         """
@@ -217,6 +189,8 @@ class DofbotController:
 
     def scout_slot(self, slot_name: str, angle_mode: str = "top") -> bool:
         """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles all scouting.
+
         Move robot to scout position for a specific slot
 
         Args:
@@ -226,25 +200,13 @@ class DofbotController:
         Returns:
             bool: True if movement successful
         """
-        position_type = "scout_top" if angle_mode == "top" else "scout_angle"
-        position = get_slot_position(slot_name, position_type)
-
-        if position is None:
-            self.logger.error(f"Scout position not found for {slot_name} ({angle_mode})")
-            return False
-
-        try:
-            self.logger.info(f"Scouting {slot_name} ({angle_mode} view)...")
-            self.move_servos(position, MOVEMENT_SPEEDS["normal"])
-            # Give camera time to stabilize
-            time.sleep(0.3)
-            return True
-        except Exception as e:
-            self.logger.error(f"Error scouting {slot_name}: {e}")
-            return False
+        self.logger.error("scout_slot() is deprecated. Use IntegratedPatrolGrabSystem instead.")
+        return False
 
     def grab_from_slot(self, slot_name: str) -> bool:
         """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles all grabbing.
+
         Grab cube from a specific slot (approach -> grab -> lift sequence)
 
         Args:
@@ -253,85 +215,27 @@ class DofbotController:
         Returns:
             bool: True if grab successful
         """
-        self.logger.info(f"Grabbing cube from {slot_name}")
-        self.is_busy = True
-
-        try:
-            # Get positions for this slot
-            approach_pos = get_slot_position(slot_name, "approach")
-            grab_pos = get_slot_position(slot_name, "grab")
-            lift_pos = get_slot_position(slot_name, "lift")
-
-            if not all([approach_pos, grab_pos, lift_pos]):
-                self.logger.error(f"Positions not defined for {slot_name}")
-                return False
-
-            # Ensure gripper is open
-            self.gripper_open()
-
-            # 1. Move to approach position (above cube)
-            self.logger.info(f"  -> Approaching {slot_name}...")
-            self.move_servos(approach_pos, MOVEMENT_SPEEDS["normal"])
-
-            # 2. Move down to grab position
-            self.logger.info(f"  -> Descending to grab...")
-            self.move_servos(grab_pos, MOVEMENT_SPEEDS["slow"])
-
-            # 3. Close gripper
-            self.gripper_close()
-
-            # 4. Lift up
-            self.logger.info(f"  -> Lifting cube...")
-            self.move_servos(lift_pos, MOVEMENT_SPEEDS["normal"])
-
-            self.logger.info(f"✅ Successfully grabbed cube from {slot_name}")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Error grabbing from {slot_name}: {e}")
-            return False
-        finally:
-            self.is_busy = False
+        self.logger.error("grab_from_slot() is deprecated. Use IntegratedPatrolGrabSystem instead.")
+        return False
 
     def move_to_delivery(self) -> bool:
         """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles all delivery.
+
         Move to delivery area and release cube
 
         Returns:
             bool: True if delivery successful
         """
-        self.logger.info("Moving to delivery area...")
-        self.is_busy = True
-
-        try:
-            # Move to delivery position
-            self.move_servos(DELIVERY_POSITION, MOVEMENT_SPEEDS["normal"])
-
-            # Release cube
-            self.logger.info("Releasing cube...")
-            self.gripper_open()
-
-            self.logger.info("✅ Cube delivered")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Error during delivery: {e}")
-            return False
-        finally:
-            self.is_busy = False
+        self.logger.error("move_to_delivery() is deprecated. Use IntegratedPatrolGrabSystem instead.")
+        return False
 
     def emergency_stop(self):
-        """Emergency stop - move to safe position"""
-        self.logger.warning("🚨 EMERGENCY STOP")
-        self.is_busy = False
-        try:
-            if self.check_connection():
-                # Release gripper
-                self.gripper_open()
-                # Move to home slowly
-                self.move_servos_array(HOME_POSITION, MOVEMENT_SPEEDS["slow"])
-        except Exception as e:
-            self.logger.error(f"Error during emergency stop: {e}")
+        """
+        DEPRECATED: This method is not used. IntegratedPatrolGrabSystem handles emergency stop.
+        """
+        self.logger.error("emergency_stop() is deprecated. Use IntegratedPatrolGrabSystem instead.")
+        return False
 
     def test_movement(self):
         """Test basic robot movements"""

@@ -68,24 +68,8 @@ INGREDIENT_CLASSES = [
     'shrimp'
 ]
 
-# ============================================================================
-# ROBOT SETTINGS
-# ============================================================================
-
-# Movement speeds (milliseconds)
-ROBOT_SPEED_FAST = 500
-ROBOT_SPEED_NORMAL = 1000
-ROBOT_SPEED_SLOW = 1500
-
-# Gripper settings
-GRIPPER_SERVO_ID = 6
-GRIPPER_OPEN_ANGLE = 60
-GRIPPER_CLOSE_ANGLE = 135
-GRIPPER_DELAY = 0.5  # seconds to wait after gripper action
-
-# Safety settings
-MAX_RETRIES = 1  # Number of retries for failed operations
-OPERATION_TIMEOUT = 30  # seconds
+# NOTE: Robot control settings have been moved to integrated_patrol_grab.py
+# Only integrated_patrol_grab.py and JSON config files should define robot control parameters
 
 # ============================================================================
 # UI THEME - MODERN STYLE (IRIS-inspired)

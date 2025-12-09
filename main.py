@@ -18,7 +18,7 @@ from config import (
     COLOR_BG_DARK, COLOR_TITLE_BAR, COLOR_TITLE_TEXT, COLOR_TITLE_SUBTITLE,
     COLOR_STATUS_BAR, COLOR_STATUS_TEXT, FONT_FAMILY
 )
-from robot import DofbotController, VisionSystem, PickSequence
+from robot import VisionSystem, PickSequence
 from ui import (
     HomeScreen, MenuScreen, CartScreen, RobotScreen,
     FileUploadScreen, LiveCameraScreen
@@ -60,9 +60,8 @@ class ChefMateApp(tk.Tk):
         # Configure styles
         self.configure_styles()
 
-        # Initialize robot systems
-        self.logger.info("Initializing robot systems...")
-        self.robot = DofbotController()
+        # Initialize vision system (for UI display only)
+        self.logger.info("Initializing vision system...")
         self.vision = VisionSystem()
         self.pick_sequence = None  # Will be created when needed
 
@@ -299,17 +298,8 @@ class ChefMateApp(tk.Tk):
         """
         self.logger.info(f"Starting robot execution for: {pizza_name}")
 
-        # Check systems
-        if not self.robot.check_connection():
-            messagebox.showerror(
-                "Robot Error",
-                "Robot not connected!\n\nPlease check robot connection and try again."
-            )
-            return
-
-        # DON'T start VisionSystem camera here - it conflicts with IntegratedPatrolGrabSystem!
-        # IntegratedPatrolGrabSystem creates its own camera when needed.
-        # VisionSystem camera is only for display on RobotScreen (will show SIMULATION MODE)
+        # IntegratedPatrolGrabSystem will handle robot connection check
+        # VisionSystem camera is only for display on RobotScreen
 
         # Show robot screen
         robot_screen = self.frames["RobotScreen"]
@@ -332,7 +322,6 @@ class ChefMateApp(tk.Tk):
         try:
             # Create pick sequence
             self.pick_sequence = PickSequence(
-                self.robot,
                 self.vision,
                 status_callback
             )
@@ -442,10 +431,6 @@ class ChefMateApp(tk.Tk):
             # Stop camera
             if self.vision:
                 self.vision.stop_camera()
-
-            # Disconnect robot
-            if self.robot:
-                self.robot.disconnect()
 
             self.logger.info("Cleanup complete")
 

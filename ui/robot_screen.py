@@ -48,9 +48,9 @@ class RobotScreen(ttk.Frame):
         # Pizza maker animation
         self.pizza_images = {}
         self.pizza_canvas = None
-        self.pizza_center_x = 225
-        self.pizza_center_y = 225
-        self.pizza_radius = 140
+        self.pizza_center_x = 190  # Will be centered in 380x380 canvas
+        self.pizza_center_y = 190  # Will be centered in 380x380 canvas
+        self.pizza_radius = 120
         self.has_cheese = False
         self.placed_ingredients = []
 
@@ -63,10 +63,9 @@ class RobotScreen(ttk.Frame):
         main_frame = tk.Frame(self, bg=COLOR_BG_DARK)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Top section - Status and controls
-        top_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK, height=100)
-        top_frame.pack(fill=tk.X, padx=20, pady=20)
-        top_frame.pack_propagate(False)
+        # Top section - Status and controls (reduced padding for smaller screens)
+        top_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
+        top_frame.pack(fill=tk.X, padx=20, pady=(10, 5))
 
         # Title
         title_label = tk.Label(
@@ -105,13 +104,20 @@ class RobotScreen(ttk.Frame):
         self.stop_btn.pack(side=tk.RIGHT)
 
         # Middle section - 3 columns: Camera, Pizza Maker, Progress
+        # Give it less weight so log section gets space
         middle_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
-        middle_frame.pack(fill=tk.BOTH, expand=True, padx=20)
+        middle_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 5))
 
-        # Left: Camera status (compact)
-        camera_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2, width=320)
-        camera_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
-        camera_frame.pack_propagate(False)
+        # Configure grid weights for responsive, proportional sizing
+        # Camera and Pizza Maker expand, Progress stays fixed
+        middle_frame.grid_rowconfigure(0, weight=1)
+        middle_frame.grid_columnconfigure(0, weight=1, minsize=300)
+        middle_frame.grid_columnconfigure(1, weight=1, minsize=300)
+        middle_frame.grid_columnconfigure(2, weight=0)
+
+        # Left: Camera status
+        camera_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2)
+        camera_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
 
         camera_title = tk.Label(
             camera_frame,
@@ -138,14 +144,13 @@ class RobotScreen(ttk.Frame):
             text="FPS: 0",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             bg=COLOR_BG_MEDIUM,
-            fg="#7F8C8D"
+            fg=COLOR_SUCCESS
         )
         self.fps_label.pack(pady=(0, 10))
 
         # Center: Pizza Maker Animation
-        pizza_frame = tk.Frame(middle_frame, bg="#2C1810", relief=tk.RAISED, borderwidth=3, width=470)
-        pizza_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
-        pizza_frame.pack_propagate(False)
+        pizza_frame = tk.Frame(middle_frame, bg="#2C1810", relief=tk.RAISED, borderwidth=3)
+        pizza_frame.grid(row=0, column=1, sticky="nsew", padx=5)
 
         pizza_title = tk.Label(
             pizza_frame,
@@ -156,16 +161,19 @@ class RobotScreen(ttk.Frame):
         )
         pizza_title.pack(pady=10)
 
-        # Pizza canvas
+        # Pizza canvas (fixed size, centered, smaller for laptop screens)
+        canvas_container = tk.Frame(pizza_frame, bg="#2C1810")
+        canvas_container.pack(fill=tk.BOTH, expand=True)
+
         self.pizza_canvas = tk.Canvas(
-            pizza_frame,
-            width=450,
-            height=450,
+            canvas_container,
+            width=380,
+            height=380,
             bg="#1A0F08",
             highlightthickness=2,
             highlightbackground="#8B4513"
         )
-        self.pizza_canvas.pack(padx=10, pady=(0, 10))
+        self.pizza_canvas.pack(padx=10, pady=10, expand=True)
 
         # Pizza status label
         self.pizza_status_label = tk.Label(
@@ -178,9 +186,14 @@ class RobotScreen(ttk.Frame):
         )
         self.pizza_status_label.pack(pady=(0, 10))
 
-        # Right: Progress panel
-        progress_frame = tk.Frame(middle_frame, bg=COLOR_BG_MEDIUM, width=320, relief=tk.RAISED, borderwidth=2)
-        progress_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        # Right: Progress panel (fixed narrow width)
+        progress_outer = tk.Frame(middle_frame, bg=COLOR_BG_DARK, width=250)
+        progress_outer.grid(row=0, column=2, sticky="ns", padx=(5, 0))
+        progress_outer.grid_propagate(False)
+        progress_outer.update_idletasks()
+
+        progress_frame = tk.Frame(progress_outer, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2, width=250)
+        progress_frame.pack(fill=tk.BOTH, expand=True)
         progress_frame.pack_propagate(False)
 
         progress_title = tk.Label(
@@ -202,16 +215,26 @@ class RobotScreen(ttk.Frame):
         )
         self.pizza_label.pack(pady=(0, 20))
 
-        # Progress bar
+        # Progress bar (green style)
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("green.Horizontal.TProgressbar",
+                       foreground=COLOR_SUCCESS,
+                       background=COLOR_SUCCESS,
+                       troughcolor=COLOR_BG_DARK,
+                       bordercolor=COLOR_BG_DARK,
+                       lightcolor=COLOR_SUCCESS,
+                       darkcolor=COLOR_SUCCESS)
+
         self.progress_var = tk.DoubleVar(value=0)
         self.progress_bar = ttk.Progressbar(
             progress_frame,
             variable=self.progress_var,
             maximum=100,
-            length=350,
-            mode='determinate'
+            mode='determinate',
+            style="green.Horizontal.TProgressbar"
         )
-        self.progress_bar.pack(pady=10)
+        self.progress_bar.pack(pady=10, padx=10, fill=tk.X)
 
         # Progress text
         self.progress_text = tk.Label(
@@ -256,14 +279,14 @@ class RobotScreen(ttk.Frame):
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             bg=COLOR_BG_MEDIUM,
             fg="#7F8C8D",
-            wraplength=320,
+            wraplength=200,
             justify=tk.LEFT
         )
         self.action_label.pack(pady=20, padx=10)
 
-        # Bottom section - Log
-        log_frame = tk.Frame(main_frame, bg=COLOR_BG_MEDIUM, height=150, relief=tk.RAISED, borderwidth=2)
-        log_frame.pack(fill=tk.X, padx=20, pady=20)
+        # Bottom section - Log (compact for smaller screens)
+        log_frame = tk.Frame(main_frame, bg=COLOR_BG_MEDIUM, relief=tk.RAISED, borderwidth=2, height=120)
+        log_frame.pack(fill=tk.X, padx=20, pady=(5, 10))
         log_frame.pack_propagate(False)
 
         log_title = tk.Label(
@@ -273,11 +296,11 @@ class RobotScreen(ttk.Frame):
             bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_DARK
         )
-        log_title.pack(anchor="w", padx=10, pady=(5, 0))
+        log_title.pack(anchor="w", padx=10, pady=(3, 0))
 
         # Log text widget with scrollbar
         log_container = tk.Frame(log_frame, bg=COLOR_BG_MEDIUM)
-        log_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        log_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(3, 5))
 
         log_scrollbar = ttk.Scrollbar(log_container)
         log_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -287,31 +310,13 @@ class RobotScreen(ttk.Frame):
             bg="#FFFFFF",
             fg=COLOR_TEXT_DARK,
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            height=6,
+            height=4,
             yscrollcommand=log_scrollbar.set,
             state=tk.DISABLED,
             wrap=tk.WORD
         )
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         log_scrollbar.config(command=self.log_text.yview)
-
-        # Bottom buttons
-        bottom_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
-        bottom_frame.pack(fill=tk.X, padx=20, pady=(0, 20))
-
-        self.home_btn = tk.Button(
-            bottom_frame,
-            text="Home",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg=COLOR_BG_MEDIUM,
-            fg=COLOR_TEXT_LIGHT,
-            command=self.go_home,
-            relief=tk.FLAT,
-            padx=20,
-            pady=10,
-            cursor="hand2"
-        )
-        self.home_btn.pack(side=tk.LEFT)
 
         self.checklist_items = []
 
@@ -333,7 +338,6 @@ class RobotScreen(ttk.Frame):
         self.progress_text.configure(text=f"0 / {len(self.ingredients_list)} ingredients")
         self.status_label.configure(text="Running", fg=COLOR_SUCCESS)
         self.stop_btn.configure(state=tk.NORMAL)
-        self.home_btn.configure(state=tk.DISABLED)
 
         # Create checklist
         self.create_checklist()
@@ -413,7 +417,6 @@ class RobotScreen(ttk.Frame):
         finally:
             self.is_running = False
             self.stop_btn.configure(state=tk.DISABLED)
-            self.home_btn.configure(state=tk.NORMAL)
 
     def update_status(self, message, status_type="info"):
         """
@@ -534,7 +537,6 @@ class RobotScreen(ttk.Frame):
             self.controller.stop_pick_sequence()
             self.status_label.configure(text="Stopped", fg=COLOR_WARNING)
             self.stop_btn.configure(state=tk.DISABLED)
-            self.home_btn.configure(state=tk.NORMAL)
 
     def add_log(self, message):
         """
@@ -558,8 +560,8 @@ class RobotScreen(ttk.Frame):
         pizza_base_dir = "assets/pizza_bases"
         ingredient_dir = "assets/ingredients"
 
-        pizza_base_size = (280, 280)
-        ingredient_size = (55, 55)
+        pizza_base_size = (240, 240)
+        ingredient_size = (50, 50)
 
         # Pizza base images
         base_images = {
@@ -623,10 +625,10 @@ class RobotScreen(ttk.Frame):
 
         # Oven background
         self.pizza_canvas.create_oval(
-            self.pizza_center_x - 160,
-            self.pizza_center_y - 160,
-            self.pizza_center_x + 160,
-            self.pizza_center_y + 160,
+            self.pizza_center_x - 140,
+            self.pizza_center_y - 140,
+            self.pizza_center_x + 140,
+            self.pizza_center_y + 140,
             fill="#3D2817",
             outline="#8B4513",
             width=2,
@@ -644,10 +646,10 @@ class RobotScreen(ttk.Frame):
         else:
             # Fallback if image not found
             self.pizza_canvas.create_oval(
-                self.pizza_center_x - 140,
-                self.pizza_center_y - 140,
-                self.pizza_center_x + 140,
-                self.pizza_center_y + 140,
+                self.pizza_center_x - 120,
+                self.pizza_center_y - 120,
+                self.pizza_center_x + 120,
+                self.pizza_center_y + 120,
                 fill="#DC143C",
                 outline="#8B0000",
                 width=3,
@@ -768,15 +770,15 @@ class RobotScreen(ttk.Frame):
 
         # Add sparkles
         sparkle_positions = [
-            (self.pizza_center_x - 180, self.pizza_center_y - 180),
-            (self.pizza_center_x + 180, self.pizza_center_y - 180),
-            (self.pizza_center_x - 180, self.pizza_center_y + 180),
-            (self.pizza_center_x + 180, self.pizza_center_y + 180),
+            (self.pizza_center_x - 150, self.pizza_center_y - 150),
+            (self.pizza_center_x + 150, self.pizza_center_y - 150),
+            (self.pizza_center_x - 150, self.pizza_center_y + 150),
+            (self.pizza_center_x + 150, self.pizza_center_y + 150),
         ]
 
         for x, y in sparkle_positions:
             self.pizza_canvas.create_text(
-                x, y, text="*", font=("Arial", 30), fill="#FFD700"
+                x, y, text="✨", font=("Arial", 25), fill="#FFD700"
             )
 
     # =========================================================================
