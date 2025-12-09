@@ -1,11 +1,12 @@
 """
 ChefMate Robot Assistant - Configuration Package
 Easy imports for all configuration modules
+
+NOTE: Robot positions have been moved to integrated_patrol_grab.py
 """
 
 from .settings import *
 from .recipes import *
-from .positions import *
 
 __all__ = [
     # Settings
@@ -18,10 +19,4 @@ __all__ = [
     # Recipes
     'PIZZA_RECIPES', 'INGREDIENT_INFO',
     'get_pizza_list', 'get_pizza_info', 'get_pizza_ingredients',
-
-    # Positions - Scout Mode
-    'HOME_POSITION', 'DELIVERY_POSITION', 'SLOT_POSITIONS',
-    'INGREDIENT_NAMES',
-    'get_slot_position', 'get_all_slot_names', 'validate_slot_name',
-    'get_all_ingredient_names'
 ]
