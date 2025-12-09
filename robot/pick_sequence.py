@@ -5,12 +5,25 @@ Orchestrates the complete ingredient picking sequence with vision verification
 
 import logging
 import time
+import sys
+import os
 from typing import List, Optional, Callable
+
+# Add project root to path for integrated_patrol_grab import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from .dofbot_controller import DofbotController
 from .vision_system import VisionSystem
 from config.recipes import get_pizza_ingredients, get_ingredient_display_name
 from config.positions import get_all_slot_names
+
+# Import the integrated patrol and grab system
+try:
+    from integrated_patrol_grab import IntegratedPatrolGrabSystem
+    PATROL_SYSTEM_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"IntegratedPatrolGrabSystem not available: {e}")
+    PATROL_SYSTEM_AVAILABLE = False
 
 
 class PickSequence:
@@ -42,6 +55,17 @@ class PickSequence:
         self.ingredients_picked = []
         self.current_ingredient_index = 0
         self.total_ingredients = 0
+
+        # Initialize integrated patrol and grab system
+        self.patrol_system = None
+        if PATROL_SYSTEM_AVAILABLE:
+            try:
+                self.logger.info("Initializing IntegratedPatrolGrabSystem...")
+                self.patrol_system = IntegratedPatrolGrabSystem()
+                self.logger.info("✓ IntegratedPatrolGrabSystem initialized")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize IntegratedPatrolGrabSystem: {e}")
+                self.patrol_system = None
 
     def _update_status(self, message: str, status_type: str = "info"):
         """
@@ -157,7 +181,7 @@ class PickSequence:
 
     def pick_next_ingredient(self) -> bool:
         """
-        Pick the next ingredient in the sequence using scout mode
+        Pick the next ingredient in the sequence using integrated patrol and grab system
 
         Returns:
             bool: True if ingredient picked successfully
@@ -180,48 +204,76 @@ class PickSequence:
         )
 
         try:
-            # Step 1: Scout all slots to find the ingredient
-            found_slot = self.scout_and_find_ingredient(ingredient)
+            # Use IntegratedPatrolGrabSystem if available
+            if self.patrol_system:
+                self.logger.info(f"Using IntegratedPatrolGrabSystem to find and grab {ingredient}")
+                self._update_status(f"🔍 Robot patrolling to find {display_name}...", "info")
 
-            if found_slot is None:
-                self._update_status(
-                    f"❌ {display_name} not found in any slot!",
-                    "error"
-                )
-                self.is_running = False
-                return False
+                # Call patrol_and_find which will automatically grab the ingredient when found
+                found_slot = self.patrol_system.patrol_and_find(ingredient)
 
-            # Step 2: Grab the ingredient from the found slot
-            self._update_status(f"🤖 Grabbing {display_name} from {found_slot}...", "info")
-            success = self.robot.grab_from_slot(found_slot)
+                if found_slot:
+                    self._update_status(f"✅ {display_name} grabbed from {found_slot}", "success")
 
-            if not success:
-                self._update_status(f"❌ Failed to grab {display_name}", "error")
-                return False
+                    # Update progress
+                    self.ingredients_picked.append(ingredient)
+                    self.current_ingredient_index += 1
 
-            self._update_status(f"✅ Grabbed {display_name}", "success")
+                    return True
+                else:
+                    self._update_status(
+                        f"❌ {display_name} not found in any slot!",
+                        "error"
+                    )
+                    self.is_running = False
+                    return False
 
-            # Step 3: Deliver to basket
-            self._update_status(f"🚚 Delivering {display_name}...", "info")
-            success = self.robot.move_to_delivery()
+            # Fallback to original scouting logic if patrol system not available
+            else:
+                self.logger.warning("IntegratedPatrolGrabSystem not available, using fallback scout mode")
 
-            if not success:
-                self._update_status(f"❌ Failed to deliver {display_name}", "error")
-                return False
+                # Step 1: Scout all slots to find the ingredient
+                found_slot = self.scout_and_find_ingredient(ingredient)
 
-            self._update_status(f"✅ {display_name} delivered to basket", "success")
+                if found_slot is None:
+                    self._update_status(
+                        f"❌ {display_name} not found in any slot!",
+                        "error"
+                    )
+                    self.is_running = False
+                    return False
 
-            # Step 4: Return to home
-            self.robot.move_to_home()
+                # Step 2: Grab the ingredient from the found slot
+                self._update_status(f"🤖 Grabbing {display_name} from {found_slot}...", "info")
+                success = self.robot.grab_from_slot(found_slot)
 
-            # Update progress
-            self.ingredients_picked.append(ingredient)
-            self.current_ingredient_index += 1
+                if not success:
+                    self._update_status(f"❌ Failed to grab {display_name}", "error")
+                    return False
 
-            # Small beep for success
-            self.robot.buzzer_beep(1)
+                self._update_status(f"✅ Grabbed {display_name}", "success")
 
-            return True
+                # Step 3: Deliver to basket
+                self._update_status(f"🚚 Delivering {display_name}...", "info")
+                success = self.robot.move_to_delivery()
+
+                if not success:
+                    self._update_status(f"❌ Failed to deliver {display_name}", "error")
+                    return False
+
+                self._update_status(f"✅ {display_name} delivered to basket", "success")
+
+                # Step 4: Return to home
+                self.robot.move_to_home()
+
+                # Update progress
+                self.ingredients_picked.append(ingredient)
+                self.current_ingredient_index += 1
+
+                # Small beep for success
+                self.robot.buzzer_beep(1)
+
+                return True
 
         except Exception as e:
             self.logger.error(f"Error picking {ingredient}: {e}")
@@ -326,3 +378,13 @@ class PickSequence:
         self.is_running = False
         self.robot.emergency_stop()
         self._update_status("🚨 EMERGENCY STOP", "error")
+
+    def cleanup(self):
+        """Cleanup resources when done"""
+        if self.patrol_system:
+            try:
+                self.logger.info("Cleaning up IntegratedPatrolGrabSystem...")
+                self.patrol_system.cleanup()
+                self.logger.info("✓ IntegratedPatrolGrabSystem cleaned up")
+            except Exception as e:
+                self.logger.error(f"Error cleaning up patrol system: {e}")

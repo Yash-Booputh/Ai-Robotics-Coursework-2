@@ -434,6 +434,10 @@ class ChefMateApp(tk.Tk):
         self.logger.info("Cleaning up resources...")
 
         try:
+            # Cleanup pick sequence (includes patrol system)
+            if self.pick_sequence:
+                self.pick_sequence.cleanup()
+
             # Stop camera
             if self.vision:
                 self.vision.stop_camera()
