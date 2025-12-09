@@ -32,17 +32,20 @@ class PickSequence:
 
     def __init__(self,
                  vision: VisionSystem,
-                 status_callback: Optional[Callable] = None):
+                 status_callback: Optional[Callable] = None,
+                 audio_system = None):
         """
         Initialize pick sequence manager
 
         Args:
             vision: VisionSystem instance (only used for UI display)
             status_callback: Optional callback for status updates
+            audio_system: Optional PizzaRobotAudio instance for sound effects
         """
         self.logger = logging.getLogger(__name__)
         self.vision = vision
         self.status_callback = status_callback
+        self.audio = audio_system  # Store the audio system
 
         self.is_running = False
         self.current_pizza = None
@@ -199,6 +202,10 @@ class PickSequence:
             if found_slot:
                 self._update_status(f"{display_name} grabbed from {found_slot}", "success")
 
+                if self.audio:
+                    time.sleep(0.5)  # Small delay
+                    self.audio.play_found_cube()
+
                 # Update progress
                 self.ingredients_picked.append(ingredient)
                 self.current_ingredient_index += 1
@@ -261,6 +268,10 @@ class PickSequence:
                 self.patrol_system.buzzer_beep(3)
                 time.sleep(0.3)
                 self.patrol_system.buzzer_beep(3)
+                if self.audio and self.current_pizza:
+                    time.sleep(0.5)
+                    self.audio.play_goodbye()
+
         else:
             self._update_status("❌ Order incomplete", "error")
 

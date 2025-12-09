@@ -19,6 +19,8 @@ from config import (
     COLOR_STATUS_BAR, COLOR_STATUS_TEXT, FONT_FAMILY
 )
 from robot import VisionSystem, PickSequence
+from robot_music import PizzaRobotAudio
+
 from ui import (
     HomeScreen, MenuScreen, CartScreen, RobotScreen,
     FileUploadScreen, LiveCameraScreen
@@ -60,6 +62,9 @@ class ChefMateApp(tk.Tk):
         # Configure styles
         self.configure_styles()
 
+        self.logger.info("Initializing audio system...")
+        self.audio = PizzaRobotAudio(sound_folder="robot_sounds")
+
         # Initialize vision system (for UI display only)
         self.logger.info("Initializing vision system...")
         self.vision = VisionSystem()
@@ -94,6 +99,9 @@ class ChefMateApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.logger.info("Application initialized successfully")
+
+        if self.audio:
+            self.audio.play_greeting()
 
     def setup_logging(self):
         """Setup application logging"""
@@ -285,6 +293,9 @@ class ChefMateApp(tk.Tk):
         self.logger.info(f"Pizza order set: {pizza_name}")
         self.current_pizza_order = pizza_name
 
+        if self.audio:
+            self.audio.play_pizza_sound(pizza_name)
+
         # Update cart screen
         cart_screen = self.frames["CartScreen"]
         cart_screen.set_order(pizza_name)
@@ -323,7 +334,8 @@ class ChefMateApp(tk.Tk):
             # Create pick sequence
             self.pick_sequence = PickSequence(
                 self.vision,
-                status_callback
+                status_callback,
+                audio_system=self.audio
             )
 
             # Start order
