@@ -27,16 +27,16 @@ class PizzaRobotAudio:
         
         # Map of sound events to their sound files
         self.sound_mapping = {
-            'greeting': ['greetings.mp3', 'hello.mp3'],
-            'Anchovy Special': ['anchovy_special.mp3'],
-            'Pesto Chicken': ['pesto_chicken.mp3'],
-            'Ocean Garden': ['ocean_garden.mp3'],
-            'Chicken Supreme': ['chicken_supreme.mp3'],
-            'Margherita': ['margherita.mp3'],
-            'Seafood Delight': ['seafood_pizza.mp3'],
-            'goodbye': ['last_word.mp3'],
-            'found_cube': ['found_cube.mp3', 'detect_cube.mp3'],
-            'drop_cube': ['drop_cube.mp3']
+            'greeting': ['greetings.wav'],
+            'Anchovy Special': ['anchovy.wav'],
+            'Pesto Chicken': ['pesto.wav'],
+            'Ocean Garden': ['ocean_garden.wav'],
+            'Chicken Supreme': ['chicken_supreme.wav'],
+            'Margherita': ['margherita.wav'],
+            'Seafood Delight': ['seafood.wav'],
+            'goodbye': ['goodbye.wav'],
+            'found_cube': ['found.wav'],
+            'drop_cube': ['delivery_done.wav']
         
         }
         
