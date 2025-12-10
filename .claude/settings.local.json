@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(if not exist \"pizza_orders\" mkdir pizza_orders)",
+      "Bash(ls:*)",
+      "Bash(python main.py:*)"
+    ]
+  }
+}

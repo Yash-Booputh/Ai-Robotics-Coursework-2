@@ -145,3 +145,31 @@ def get_total_ingredients_needed(pizza_name):
     """Get count of ingredients needed for a pizza"""
     ingredients = get_pizza_ingredients(pizza_name)
     return len(ingredients)
+
+
+def add_chef_surprise_recipe(pizza_data):
+    """
+    Add Chef Surprise pizza to recipes dynamically
+
+    Args:
+        pizza_data: Dictionary with pizza information including:
+            - name: "Chef Surprise"
+            - description: Pizza description
+            - ingredients: List of ingredient IDs
+            - price: Price as float
+    """
+    PIZZA_RECIPES["Chef Surprise"] = {
+        "name": "Chef Surprise",
+        "description": pizza_data.get("description", "Random chef's selection"),
+        "ingredients": pizza_data["ingredients"],
+        "price": f"${pizza_data['price']:.2f}",
+        "image": "chef_surprise.jpg"
+    }
+    print(f"[RECIPES] Chef Surprise added with {len(pizza_data['ingredients'])} ingredients")
+
+
+def clear_chef_surprise():
+    """Remove Chef Surprise from recipes (cleanup after order)"""
+    if "Chef Surprise" in PIZZA_RECIPES:
+        del PIZZA_RECIPES["Chef Surprise"]
+        print("[RECIPES] Chef Surprise cleared from menu")

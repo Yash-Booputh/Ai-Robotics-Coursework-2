@@ -84,10 +84,11 @@ class HomeScreen(ttk.Frame):
         buttons_container = tk.Frame(modes_container, bg=COLOR_BG_LIGHT)
         buttons_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
-        # Configure grid to be responsive (3 columns)
-        buttons_container.grid_columnconfigure(0, weight=1, minsize=250)
-        buttons_container.grid_columnconfigure(1, weight=1, minsize=250)
-        buttons_container.grid_columnconfigure(2, weight=1, minsize=250)
+        # Configure grid to be responsive (4 columns now)
+        buttons_container.grid_columnconfigure(0, weight=1, minsize=200)
+        buttons_container.grid_columnconfigure(1, weight=1, minsize=200)
+        buttons_container.grid_columnconfigure(2, weight=1, minsize=200)
+        buttons_container.grid_columnconfigure(3, weight=1, minsize=200)
         buttons_container.grid_rowconfigure(0, weight=1)
 
         # Order Pizza Button (Main mode)
@@ -99,6 +100,15 @@ class HomeScreen(ttk.Frame):
         )
         btn_order.grid(row=0, column=0, padx=5, pady=8, sticky='nsew', ipady=15)
 
+        # AprilTag Pizza Order Button (NEW)
+        btn_apriltag = ModernButton(
+            buttons_container,
+            text="APRILTAG PIZZA\n\nChef Surprise with\nAprilTag & gestures",
+            command=self.open_apriltag_order,
+            bg="#FF9800"  # Orange color
+        )
+        btn_apriltag.grid(row=0, column=1, padx=5, pady=8, sticky='nsew', ipady=15)
+
         # Live Camera Button
         btn_camera = ModernButton(
             buttons_container,
@@ -106,7 +116,7 @@ class HomeScreen(ttk.Frame):
             command=self.open_live_camera,
             bg=COLOR_INFO
         )
-        btn_camera.grid(row=0, column=1, padx=5, pady=8, sticky='nsew', ipady=15)
+        btn_camera.grid(row=0, column=2, padx=5, pady=8, sticky='nsew', ipady=15)
 
         # File Upload Button
         btn_upload = ModernButton(
@@ -115,7 +125,7 @@ class HomeScreen(ttk.Frame):
             command=self.open_file_upload,
             bg=COLOR_PURPLE
         )
-        btn_upload.grid(row=0, column=2, padx=5, pady=8, sticky='nsew', ipady=15)
+        btn_upload.grid(row=0, column=3, padx=5, pady=8, sticky='nsew', ipady=15)
 
         # Information section
         info_frame = tk.LabelFrame(
@@ -131,6 +141,7 @@ class HomeScreen(ttk.Frame):
 
         info_text = (
             "• ORDER PIZZA: Main mode - Select a pizza, robot picks ingredients automatically\n"
+            "• APRILTAG PIZZA: Chef Surprise - Use AprilTag & hand gestures for random pizza\n"
             "• LIVE CAMERA: Test ingredient detection in real-time (no robot control)\n"
             "• FILE UPLOAD: Upload images for offline detection testing\n\n"
             "Supported ingredients: Anchovies, Basil, Cheese, Chicken, Fresh Tomato, Shrimp"
@@ -162,6 +173,86 @@ class HomeScreen(ttk.Frame):
     def open_pizza_menu(self):
         """Open pizza menu screen"""
         self.controller.show_frame("MenuScreen")
+
+    def open_apriltag_order(self):
+        """Launch standalone AprilTag detector and wait for order"""
+        import subprocess
+        import json
+        from pathlib import Path
+        from tkinter import messagebox
+
+        # Run the standalone AprilTag detector
+        try:
+            script_path = Path(__file__).parent.parent / "apriltag_pizza_detector_simple.py"
+
+            # Inform user
+            messagebox.showinfo(
+                "AprilTag Chef Surprise",
+                "Launching AprilTag detector...\n\n"
+                "1. Show AprilTag 0 to activate\n"
+                "2. Use OPEN HAND to generate pizzas\n"
+                "3. Use THUMBS UP to lock your order\n"
+                "4. Close the window when done\n\n"
+                "Your order will be added to the cart!"
+            )
+
+            # Launch the standalone detector (blocking call)
+            result = subprocess.run(["python", str(script_path)], check=True)
+
+            # After it closes, look for the most recent order file
+            orders_dir = Path(__file__).parent.parent / "pizza_orders"
+            if orders_dir.exists():
+                order_files = sorted(orders_dir.glob("order_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+
+                if order_files:
+                    # Check if the most recent order was created in the last 10 seconds
+                    import time
+                    most_recent = order_files[0]
+                    time_diff = time.time() - most_recent.stat().st_mtime
+
+                    if time_diff < 10:  # Order was just created
+                        # Load the most recent order
+                        with open(most_recent, 'r') as f:
+                            order_data = json.load(f)
+
+                        # Add to recipes dynamically
+                        from config.recipes import add_chef_surprise_recipe
+
+                        # Map ingredient names back to IDs
+                        ingredient_mapping = {
+                            "Anchovies": "anchovies",
+                            "Fresh Basil": "basil",
+                            "Mozzarella Cheese": "cheese",
+                            "Grilled Chicken": "chicken",
+                            "Fresh Tomato": "fresh_tomato",
+                            "Shrimp": "shrimp"
+                        }
+
+                        ingredients = [ingredient_mapping.get(ing, ing.lower().replace(" ", "_"))
+                                       for ing in order_data["ingredients"]]
+
+                        pizza_data = {
+                            "name": "Chef Surprise",
+                            "description": "Random chef's selection",
+                            "ingredients": ingredients,
+                            "price": float(order_data["price"].replace("$", ""))
+                        }
+                        add_chef_surprise_recipe(pizza_data)
+
+                        # Set the order and go to cart
+                        self.controller.set_pizza_order("Chef Surprise")
+                        self.controller.show_frame("CartScreen")
+                    else:
+                        # User quit without completing order - stay on home screen
+                        messagebox.showinfo("Order Cancelled", "No order was placed. Returning to home screen.")
+                else:
+                    # No order files - user quit without ordering
+                    messagebox.showinfo("Order Cancelled", "No order was placed. Returning to home screen.")
+
+        except subprocess.CalledProcessError:
+            messagebox.showerror("Error", "AprilTag detector exited with an error.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to launch AprilTag detector:\n{str(e)}")
 
     def open_file_upload(self):
         """Open file upload screen"""

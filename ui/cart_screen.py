@@ -84,7 +84,7 @@ class CartScreen(ttk.Frame):
         buttons_frame.pack(fill=tk.X, pady=0, ipady=10)
 
         # Back button - compact
-        back_btn = tk.Button(
+        self.back_btn = tk.Button(
             buttons_frame,
             text="← Back to Menu",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
@@ -99,7 +99,7 @@ class CartScreen(ttk.Frame):
             pady=10,
             cursor="hand2"
         )
-        back_btn.pack(side=tk.LEFT, padx=15, pady=5)
+        self.back_btn.pack(side=tk.LEFT, padx=15, pady=5)
 
         # Place order button - compact
         self.order_btn = tk.Button(
@@ -146,9 +146,16 @@ class CartScreen(ttk.Frame):
             )
             self.no_order_label.pack(expand=True)
             self.order_btn.configure(state=tk.DISABLED)
+            self.back_btn.configure(text="← Back to Menu")
             return
 
         pizza_data = PIZZA_RECIPES[self.pizza_order]
+
+        # Update back button text based on pizza type
+        if self.pizza_order == "Chef Surprise":
+            self.back_btn.configure(text="← Back to Home")
+        else:
+            self.back_btn.configure(text="← Back to Menu")
 
         # Pizza name - more compact
         name_label = tk.Label(
@@ -268,8 +275,12 @@ class CartScreen(ttk.Frame):
             self.controller.start_robot_execution(self.pizza_order)
 
     def go_back(self):
-        """Go back to menu"""
-        self.controller.show_frame("MenuScreen")
+        """Go back to menu or home screen depending on pizza type"""
+        # If Chef Surprise, go back to home (standalone detector handles ordering)
+        if self.pizza_order == "Chef Surprise":
+            self.controller.show_frame("HomeScreen")
+        else:
+            self.controller.show_frame("MenuScreen")
 
     def reset_cart(self):
         """Reset the cart"""

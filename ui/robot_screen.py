@@ -403,6 +403,13 @@ class RobotScreen(ttk.Frame):
             if success:
                 self.add_log("Order completed successfully!")
                 self.status_label.configure(text="Completed", fg=COLOR_SUCCESS)
+
+                # Clear Chef Surprise from recipes if it was used
+                if self.pizza_name == "Chef Surprise":
+                    from config.recipes import clear_chef_surprise
+                    clear_chef_surprise()
+                    self.add_log("Chef Surprise cleared from menu")
+
                 messagebox.showinfo("Success", f"{self.pizza_name} is ready!")
             else:
                 self.add_log("Order failed")
