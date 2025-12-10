@@ -1,68 +1,68 @@
 {
     "slot_1": {
         "angles": {
-            "servo_1": 110,
-            "servo_2": 124,
-            "servo_3": 2,
-            "servo_4": 56,
+            "servo_1": 112,
+            "servo_2": 110,
+            "servo_3": 35,
+            "servo_4": 30,
             "servo_5": 89,
             "servo_6": 0
         },
-        "timestamp": "2025-12-09 09:40:45"
+        "timestamp": "2025-12-10 09:32:30"
     },
     "slot_2": {
         "angles": {
             "servo_1": 92,
-            "servo_2": 124,
-            "servo_3": 2,
-            "servo_4": 56,
+            "servo_2": 114,
+            "servo_3": 12,
+            "servo_4": 52,
             "servo_5": 89,
             "servo_6": 0
         },
-        "timestamp": "2025-12-09 09:41:35"
+        "timestamp": "2025-12-10 09:33:24"
     },
     "slot_3": {
         "angles": {
-            "servo_1": 68,
-            "servo_2": 124,
-            "servo_3": 2,
-            "servo_4": 56,
+            "servo_1": 72,
+            "servo_2": 112,
+            "servo_3": 14,
+            "servo_4": 54,
             "servo_5": 89,
             "servo_6": 0
         },
-        "timestamp": "2025-12-09 09:42:07"
+        "timestamp": "2025-12-10 09:34:00"
     },
     "slot_4": {
         "angles": {
-            "servo_1": 112,
+            "servo_1": 110,
             "servo_2": 106,
             "servo_3": 0,
             "servo_4": 44,
             "servo_5": 89,
             "servo_6": 0
         },
-        "timestamp": "2025-12-09 09:43:56"
+        "timestamp": "2025-12-10 09:34:29"
     },
     "slot_5": {
         "angles": {
-            "servo_1": 90,
-            "servo_2": 126,
+            "servo_1": 92,
+            "servo_2": 110,
             "servo_3": 0,
-            "servo_4": 26,
+            "servo_4": 38,
             "servo_5": 89,
             "servo_6": 0
         },
-        "timestamp": "2025-12-09 09:46:32"
+        "timestamp": "2025-12-10 09:35:57"
     },
     "slot_6": {
         "angles": {
-            "servo_1": 70,
-            "servo_2": 122,
-            "servo_3": 2,
-            "servo_4": 30,
+            "servo_1": 72,
+            "servo_2": 98,
+            "servo_3": 16,
+            "servo_4": 36,
             "servo_5": 89,
             "servo_6": 0
         },
-        "timestamp": "2025-12-09 09:47:59"
+        "timestamp": "2025-12-10 09:36:59"
     }
 }

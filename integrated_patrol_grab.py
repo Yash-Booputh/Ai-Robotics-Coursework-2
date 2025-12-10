@@ -23,8 +23,20 @@ import time
 import cv2
 import json
 import os
+import sys
 import numpy as np
 from Arm_Lib import Arm_Device
+
+# Add project root to path for config imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Import recipe configuration
+try:
+    from config.recipes import get_pizza_ingredients, get_ingredient_display_name
+    RECIPES_AVAILABLE = True
+except ImportError:
+    RECIPES_AVAILABLE = False
+    print("Warning: Recipe configuration not available")
 
 # Try to import ONNX Runtime
 try:
@@ -47,13 +59,14 @@ MODEL_PATH = "models/best.onnx"
 NUM_SERVOS = 6
 
 # Movement speeds (higher value = slower)
-MOVE_SPEED = 800           # Normal movement
-PATROL_SPEED = 500         # Patrol movement (faster)
+MOVE_SPEED = 900           # Normal movement
+PATROL_SPEED = 900         # Patrol movement (faster)
 SAFE_LEVEL_SPEED = 1000    # Moving to safe level position
 GRAB_SPEED = 1000          # Grabbing motion (very slow)
+DELIVERY_SPEED = 1500      # Delivery motion (very slow and controlled)
 
 # Delays between movements
-MOVEMENT_DELAY = 3.0   # 3 seconds between movements
+MOVEMENT_DELAY = 2.5  # 3 seconds between movements
 
 # Detection configuration
 CONFIDENCE_THRESHOLD = 0.5
@@ -401,7 +414,7 @@ class IntegratedPatrolGrabSystem:
 
         # Step 3: Move to Waypoint 2 (Grab Position - inside shelf)
         print("\n" + "="*60)
-        print("  [STEP 3/5] MOVING TO WAYPOINT 2 (Grab Position)")
+        print("  [STEP 3/4] MOVING TO WAYPOINT 2 (Grab Position)")
         print("="*60)
         print("        Location: Inside shelf, at cube")
         print("        Gripper behavior: EXCLUDED (stays OPEN at 0°)")
@@ -423,7 +436,7 @@ class IntegratedPatrolGrabSystem:
 
         # Step 4: Close gripper to grab (use angle from waypoint 2)
         print("\n" + "="*60)
-        print("  [STEP 4/5] CLOSING GRIPPER TO GRAB")
+        print("  [STEP 4/4] CLOSING GRIPPER TO GRAB")
         print("="*60)
         gripper_before = self.current_angles.get(6, 'unknown')
         print(f"        Current gripper angle: {gripper_before}°")
@@ -434,83 +447,104 @@ class IntegratedPatrolGrabSystem:
         print(f"        ✓ Gripper now at: {gripper_after}° (item grabbed!)")
         print("="*60)
 
-        # Step 5: Pickup sequence - return to Waypoint 1 with gripper CLOSED
+        # Sequence complete - gripper remains CLOSED with item held
         print("\n" + "="*60)
-        print("  [STEP 5/5] PICKUP - Returning to Safe Level Position (Waypoint 1)")
+        print("  ✓ Grab sequence complete!")
+        print("  ℹ Item is held securely in gripper")
+        print(f"  ℹ Gripper status: CLOSED at {self.current_angles.get(6, 'unknown')}°")
+        print("  ℹ Ready for delivery")
         print("="*60)
-        print("        Location: Outside shelf, at cube height (same as step 2)")
-        print("        Gripper behavior: EXCLUDED (stays CLOSED)")
+        return True
 
-        print("\n        Waypoint 1 Target Angles:")
-        for servo_key, angle in sorted(waypoint_1.items()):
+    def deliver_to_basket(self, slot_key):
+        """
+        Move to delivery position (waypoint 3) and drop the ingredient
+        Call this after execute_grab_sequence() succeeds
+
+        IMPORTANT: Uses staged movement to prevent collision with shelf:
+        - Stage 1: Move servo 2 ONLY (pulls arm back/up from shelf)
+        - Wait 2.5 seconds for servo 2 to complete
+        - Stage 2: Move remaining servos (1, 3, 4, 5) to complete waypoint 3
+
+        Args:
+            slot_key: The slot key (e.g., "slot_1") to get waypoint_3 from
+        """
+        print("\n" + "="*60)
+        print("  [DELIVERY] Moving to Waypoint 3 (Delivery Position)...")
+        print("="*60)
+
+        # Get waypoint 3 from grab positions JSON
+        if slot_key not in self.grab_positions:
+            print(f"✗ Grab sequence for {slot_key} not found!")
+            return False
+
+        grab_data = self.grab_positions[slot_key]
+        waypoint_3 = grab_data.get('waypoint_3_delivery')
+
+        if not waypoint_3:
+            print("✗ Waypoint 3 (delivery position) not configured!")
+            return False
+
+        print("\n        Waypoint 3 Target Angles (Full Position):")
+        for servo_key, angle in sorted(waypoint_3.items()):
             servo_id = int(servo_key.split('_')[1])
             status = " (EXCLUDED - stays CLOSED)" if servo_id == 6 else ""
             print(f"          {servo_key}: {angle}°{status}")
 
-        # Move back to safe level position WITHOUT touching gripper
+        # STAGE 1: Move ONLY servo 2 first (pull arm back from shelf)
+        print("\n" + "="*60)
+        print("  [STAGE 1] Moving Servo 2 FIRST (pulling arm out of shelf)")
+        print("="*60)
+        servo_2_target = waypoint_3.get('servo_2')
+        if servo_2_target is not None:
+            current_servo_2 = self.current_angles.get(2, 'unknown')
+            print(f"        Servo 2: {current_servo_2}° → {servo_2_target}°")
+            self.move_servo(2, servo_2_target, DELIVERY_SPEED)
+
+            print(f"\n        ⏳ Waiting 2.5 seconds for servo 2 to complete movement...")
+            print(f"        (Ensuring arm is fully clear of shelf)")
+            time.sleep(2.5)
+
+            actual_servo_2 = self.current_angles.get(2, 'unknown')
+            print(f"        ✓ Servo 2 now at: {actual_servo_2}°")
+        else:
+            print("        ⚠️  Warning: Servo 2 not found in waypoint 3!")
+
+        # STAGE 2: Move remaining servos (1, 3, 4, 5) - exclude servo 2 and servo 6
+        print("\n" + "="*60)
+        print("  [STAGE 2] Moving remaining servos to complete waypoint 3")
+        print("="*60)
+        print("        Moving servos: 1, 3, 4, 5 (excluding 2 and 6)")
+
         gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"\n        Gripper angle BEFORE move: {gripper_before}° (should be CLOSED ~{gripper_closed_angle}°)")
-        self.move_to_position(waypoint_1, SAFE_LEVEL_SPEED, "safe level position (pickup)", exclude_gripper=True)
+        print(f"\n        Gripper angle BEFORE move: {gripper_before}° (should be CLOSED)")
+
+        # Move servos 1, 3, 4, 5 only (exclude servo 2 since it already moved, and exclude servo 6 gripper)
+        for servo_key, angle in waypoint_3.items():
+            servo_id = int(servo_key.split('_')[1])
+
+            # Skip servo 2 (already moved) and servo 6 (gripper stays closed)
+            if servo_id == 2 or servo_id == 6:
+                continue
+
+            print(f"          Moving Servo {servo_id} → {angle}°")
+            self.move_servo(servo_id, angle, DELIVERY_SPEED)
+            time.sleep(0.05)
+
         gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
-
-        if gripper_after != gripper_before:
-            print(f"        ⚠️  WARNING: Gripper moved from {gripper_before}° to {gripper_after}°!")
-            print(f"        ⚠️  This should NOT happen with exclude_gripper=True!")
-
-        print(f"\n  Waiting {MOVEMENT_DELAY} seconds...")
-        print("="*60)
-        time.sleep(MOVEMENT_DELAY)
-
-        # Sequence complete - gripper remains CLOSED with item held
-        print("\n" + "="*60)
-        print("  ✓ Grab and pickup sequence complete!")
-        print("  ℹ Item is held securely in gripper")
-        print(f"  ℹ Gripper status: CLOSED at {self.current_angles.get(6, 'unknown')}°")
-        print("  ℹ Ready for delivery to basket")
-        print("="*60)
-        return True
-
-    def deliver_to_basket(self):
-        """
-        Move to delivery basket and drop the ingredient
-        Call this after execute_grab_sequence() succeeds
-        """
-        print("\n" + "="*60)
-        print("  [DELIVERY] Moving to basket...")
-        print("="*60)
-
-        # Preserve current servo 5 angle (gripper rotation) - don't change it during delivery
-        current_servo_5 = self.current_angles.get(5, 89)
-
-        # Delivery position from config (preserve servo 5, exclude servo 6)
-        # Original DELIVERY_POSITION = [90, 48, 35, 30, 270]
-        DELIVERY_POSITION = {
-            'servo_1': 90,
-            'servo_2': 48,
-            'servo_3': 35,
-            'servo_4': 30,
-            'servo_5': current_servo_5  # PRESERVE current angle, don't rotate
-        }
-
-        print("  Moving to delivery basket position...")
-        print(f"  Target position: {DELIVERY_POSITION}")
-        print(f"  Servo 5 preserved at: {current_servo_5}° (no rotation)")
-
-        # Move to delivery position WITHOUT opening gripper yet
-        self.move_to_position(DELIVERY_POSITION, MOVE_SPEED, "delivery basket", exclude_gripper=True)
+        print(f"\n        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
+        print(f"        ✓ Reached waypoint 3 delivery position")
         time.sleep(0.5)
 
         # Now open gripper to drop ingredient
         print("\n  Opening gripper to drop ingredient...")
-        gripper_before = self.current_angles.get(6, 'unknown')
-        print(f"  Gripper BEFORE: {gripper_before}° (should be CLOSED)")
+        print(f"  Gripper BEFORE: {gripper_after}° (CLOSED)")
         self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
         time.sleep(1.0)
-        gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"  Gripper AFTER: {gripper_after}° (OPEN - ingredient dropped!)")
+        gripper_final = self.current_angles.get(6, 'unknown')
+        print(f"  Gripper AFTER: {gripper_final}° (OPEN - ingredient dropped!)")
 
-        print("\n  ✓ Ingredient delivered to basket!")
+        print("\n  ✓ Ingredient delivered!")
         print("="*60)
         return True
 
@@ -519,6 +553,18 @@ class IntegratedPatrolGrabSystem:
         Patrol through all slots looking for target ingredient
         When found with confidence > 0.5, automatically execute grab sequence
         """
+        # CHECK IF MODEL IS LOADED BEFORE STARTING PATROL
+        if not self.model_loaded:
+            print("\n" + "="*60)
+            print("✗ ERROR: YOLO model not loaded!")
+            print("="*60)
+            print("Cannot patrol without object detection.")
+            print("Please ensure:")
+            print(f"  1. Model file exists: {MODEL_PATH}")
+            print("  2. ONNX Runtime is installed: pip install onnxruntime")
+            print("="*60)
+            return None
+
         print("\n" + "="*60)
         print(f"STARTING PATROL - Looking for: {target_ingredient}")
         print("="*60)
@@ -558,8 +604,8 @@ class IntegratedPatrolGrabSystem:
                     print(f"✓✓✓ SUCCESS! {target_ingredient} GRABBED FROM {slot_key}")
                     print("="*60)
 
-                    # Deliver to basket
-                    delivery_success = self.deliver_to_basket()
+                    # Deliver to basket using waypoint 3
+                    delivery_success = self.deliver_to_basket(slot_key)
 
                     if delivery_success:
                         print("\n" + "="*60)
@@ -584,6 +630,110 @@ class IntegratedPatrolGrabSystem:
         print(f"✗ {target_ingredient} not found in any slot")
         print("="*60)
         return None
+
+    def execute_pizza_order(self, pizza_name, status_callback=None):
+        """
+        Execute complete pizza order - find and grab all ingredients
+
+        Args:
+            pizza_name: Name of pizza to make (e.g., "Margherita", "Pepperoni")
+            status_callback: Optional callback for status updates (message, status_type)
+
+        Returns:
+            bool: True if order completed successfully
+        """
+        if not RECIPES_AVAILABLE:
+            print("\n✗ ERROR: Recipe configuration not available!")
+            print("Cannot execute pizza orders without recipe data.")
+            return False
+
+        # Get ingredients for this pizza
+        ingredients_needed = get_pizza_ingredients(pizza_name)
+
+        if not ingredients_needed:
+            print(f"\n✗ ERROR: Unknown pizza: {pizza_name}")
+            return False
+
+        print("\n" + "="*60)
+        print(f"🍕 PIZZA ORDER: {pizza_name}")
+        print("="*60)
+        print(f"Ingredients needed: {len(ingredients_needed)}")
+        for i, ingredient in enumerate(ingredients_needed, 1):
+            display_name = get_ingredient_display_name(ingredient)
+            print(f"  {i}. {display_name}")
+        print("="*60)
+
+        # Update status callback if provided
+        if status_callback:
+            status_callback(f"🍕 Starting order: {pizza_name}", "info")
+            status_callback(f"Ingredients needed: {len(ingredients_needed)}", "info")
+
+        # Move to home position
+        self.move_to_home()
+
+        # Signal start
+        self.buzzer_beep(2)
+
+        # Track progress
+        ingredients_picked = []
+
+        # Find and grab each ingredient
+        for index, ingredient in enumerate(ingredients_needed, 1):
+            display_name = get_ingredient_display_name(ingredient)
+
+            print(f"\n{'='*60}")
+            print(f"INGREDIENT {index}/{len(ingredients_needed)}: {display_name}")
+            print("="*60)
+
+            if status_callback:
+                status_callback(
+                    f"Finding {display_name} ({index}/{len(ingredients_needed)})",
+                    "info"
+                )
+
+            # Patrol and find this ingredient
+            found_slot = self.patrol_and_find(ingredient)
+
+            if found_slot:
+                ingredients_picked.append(ingredient)
+
+                if status_callback:
+                    status_callback(f"✓ {display_name} grabbed from {found_slot}", "success")
+            else:
+                print(f"\n✗ FAILED: Could not find or grab {display_name}")
+
+                if status_callback:
+                    status_callback(f"✗ Failed to find {display_name}", "error")
+
+                # Order failed
+                print("\n" + "="*60)
+                print(f"❌ ORDER FAILED")
+                print(f"Missing ingredient: {display_name}")
+                print(f"Progress: {len(ingredients_picked)}/{len(ingredients_needed)} ingredients")
+                print("="*60)
+
+                # Return to home
+                self.move_to_home()
+                return False
+
+        # All ingredients collected!
+        print("\n" + "="*60)
+        print(f"🎉 ORDER COMPLETE! {pizza_name} is ready!")
+        print(f"All {len(ingredients_needed)} ingredients collected successfully!")
+        print("="*60)
+
+        if status_callback:
+            status_callback(f"🎉 Order complete! {pizza_name} is ready!", "success")
+
+        # Victory beeps
+        self.buzzer_beep(3)
+        time.sleep(0.3)
+        self.buzzer_beep(3)
+
+        # Return to home
+        self.move_to_home()
+
+        return True
 
     def cleanup(self):
         """Clean up resources"""
