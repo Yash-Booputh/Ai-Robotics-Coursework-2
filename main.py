@@ -16,14 +16,24 @@ from config import (
     APP_NAME, WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT,
     WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT, LOG_FILE, LOG_LEVEL,
     COLOR_BG_DARK, COLOR_TITLE_BAR, COLOR_TITLE_TEXT, COLOR_TITLE_SUBTITLE,
-    COLOR_STATUS_BAR, COLOR_STATUS_TEXT, FONT_FAMILY
+    COLOR_STATUS_BAR, COLOR_STATUS_TEXT, COLOR_PRIMARY, FONT_FAMILY
 )
 from robot import VisionSystem
-from integrated_patrol_grab import IntegratedPatrolGrabSystem
+from robot_music import PizzaRobotAudio
 from ui import (
-    HomeScreen, MenuScreen, CartScreen, RobotScreen,
+    LoadingScreen, HomeScreen, MenuScreen, CartScreen, RobotScreen,
     FileUploadScreen, LiveCameraScreen
 )
+
+# Try to import robot control (may fail if not on robot hardware)
+try:
+    from integrated_patrol_grab import IntegratedPatrolGrabSystem
+    ROBOT_AVAILABLE = True
+except (ImportError, ModuleNotFoundError) as e:
+    print(f"⚠️  Robot hardware not available: {e}")
+    print("   Running in UI-only mode (audio and UI will work)")
+    IntegratedPatrolGrabSystem = None
+    ROBOT_AVAILABLE = False
 
 
 class ChefMateApp(tk.Tk):
@@ -49,52 +59,70 @@ class ChefMateApp(tk.Tk):
         self.minsize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
         self.configure(bg=COLOR_BG_DARK)
 
-        # Start maximized (Linux-compatible)
+        # Set window icon
+        try:
+            import os
+            logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.png')
+            if os.path.exists(logo_path):
+                self.iconphoto(True, tk.PhotoImage(file=logo_path))
+        except Exception as e:
+            self.logger.warning(f"Could not set window icon: {e}") if hasattr(self, 'logger') else None
+
+        # Start maximized (windowed fullscreen)
         try:
             self.attributes('-zoomed', True)  # Linux
         except tk.TclError:
             try:
                 self.state('zoomed')  # Windows
             except tk.TclError:
-                pass  # If neither works, just use the geometry size
+                pass
+
+        # Hide main window initially
+        self.withdraw()
 
         # Configure styles
         self.configure_styles()
 
-        # Initialize vision system (for UI display only)
+        # Initialize vision system
         self.logger.info("Initializing vision system...")
         self.vision = VisionSystem()
-        self.patrol_system = None  # Will be created when needed
+        self.patrol_system = None
+
+        # Initialize audio system
+        self.logger.info("Initializing audio system...")
+        self.audio = PizzaRobotAudio()
 
         # Application state
         self.current_pizza_order = None
         self.current_screen_name = "Home"
 
-        # Create title bar
+        # Create UI
         self.create_title_bar()
 
-        # Create main container
         container = tk.Frame(self, bg=COLOR_BG_DARK)
         container.pack(fill=tk.BOTH, expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        # Dictionary to hold all screens
         self.frames = {}
-
-        # Create all screens
         self.create_screens(container)
-
-        # Create status bar
         self.create_status_bar()
-
-        # Show home screen
         self.show_frame("HomeScreen")
 
-        # Handle window close
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.logger.info("Application initialized successfully")
+
+        # Start audio
+        self.logger.info("Starting audio...")
+        self.audio.start_background_music()
+        self.audio.play_greeting()
+
+        # Show loading screen (will auto-close after 3.5 seconds)
+        LoadingScreen(self)
+
+        # Show main window after loading screen closes
+        self.after(3600, self.deiconify)
 
     def setup_logging(self):
         """Setup application logging"""
@@ -129,10 +157,34 @@ class ChefMateApp(tk.Tk):
         title_container = tk.Frame(title_frame, bg=COLOR_TITLE_BAR)
         title_container.pack(side=tk.LEFT, padx=20, pady=15)
 
+        # Try to load and display logo
+        try:
+            from PIL import Image, ImageTk
+            import os
+            logo_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo.png')
+            if os.path.exists(logo_path):
+                logo_img = Image.open(logo_path)
+                # Resize logo to fit title bar (height ~60px for better visibility)
+                logo_img = logo_img.resize((60, 60), Image.Resampling.LANCZOS)
+                self.logo_photo = ImageTk.PhotoImage(logo_img)
+
+                logo_label = tk.Label(
+                    title_container,
+                    image=self.logo_photo,
+                    bg=COLOR_TITLE_BAR
+                )
+                logo_label.pack(side=tk.LEFT, padx=(0, 15))
+        except Exception as e:
+            self.logger.warning(f"Could not load logo: {e}")
+
+        # Text container for title and subtitle (stacked vertically)
+        text_container = tk.Frame(title_container, bg=COLOR_TITLE_BAR)
+        text_container.pack(side=tk.LEFT)
+
         title_label = tk.Label(
-            title_container,
+            text_container,
             text="ChefMate Robot Assistant",
-            font=(FONT_FAMILY, 20, 'bold'),
+            font=(FONT_FAMILY, 18, 'bold'),
             bg=COLOR_TITLE_BAR,
             fg=COLOR_TITLE_TEXT
         )
@@ -140,15 +192,15 @@ class ChefMateApp(tk.Tk):
 
         # Mode subtitle label
         self.mode_subtitle_label = tk.Label(
-            title_container,
+            text_container,
             text="Home",
-            font=(FONT_FAMILY, 10),
+            font=(FONT_FAMILY, 9),
             bg=COLOR_TITLE_BAR,
             fg=COLOR_TITLE_SUBTITLE
         )
         self.mode_subtitle_label.pack(anchor=tk.W)
 
-        # Home button in title bar
+        # Home button in title bar (rightmost)
         home_btn = tk.Button(
             title_frame,
             text="HOME",
@@ -162,6 +214,50 @@ class ChefMateApp(tk.Tk):
             pady=8
         )
         home_btn.pack(side=tk.RIGHT, padx=20, pady=10)
+
+        # Volume control container (right side, before HOME button)
+        volume_container = tk.Frame(title_frame, bg=COLOR_TITLE_BAR)
+        volume_container.pack(side=tk.RIGHT, padx=15, pady=10)
+
+        # Volume icon and label
+        volume_label = tk.Label(
+            volume_container,
+            text="🔊 Volume:",
+            font=(FONT_FAMILY, 9),
+            bg=COLOR_TITLE_BAR,
+            fg=COLOR_TITLE_TEXT
+        )
+        volume_label.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Volume slider
+        self.volume_slider = tk.Scale(
+            volume_container,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            length=120,
+            bg=COLOR_TITLE_BAR,
+            fg=COLOR_TITLE_TEXT,
+            highlightthickness=0,
+            troughcolor='#34495E',
+            activebackground=COLOR_PRIMARY,
+            command=self.on_volume_change,
+            showvalue=False,
+            font=(FONT_FAMILY, 8)
+        )
+        self.volume_slider.set(25)  # Default 25% (0.25 volume)
+        self.volume_slider.pack(side=tk.LEFT, padx=5)
+
+        # Volume percentage label
+        self.volume_percent_label = tk.Label(
+            volume_container,
+            text="25%",
+            font=(FONT_FAMILY, 9),
+            bg=COLOR_TITLE_BAR,
+            fg=COLOR_TITLE_TEXT,
+            width=4
+        )
+        self.volume_percent_label.pack(side=tk.LEFT, padx=(0, 10))
 
     def create_status_bar(self):
         """Create status bar at bottom"""
@@ -182,6 +278,18 @@ class ChefMateApp(tk.Tk):
         """Update status bar message"""
         if hasattr(self, 'status_label'):
             self.status_label.config(text=message)
+
+    def on_volume_change(self, value):
+        """Handle volume slider change"""
+        volume_percent = int(float(value))
+        volume_decimal = volume_percent / 100.0
+
+        # Update volume label
+        self.volume_percent_label.config(text=f"{volume_percent}%")
+
+        # Update background music volume
+        if hasattr(self, 'audio') and self.audio:
+            self.audio.set_background_volume(volume_decimal)
 
     def go_home(self):
         """Navigate to home screen"""
@@ -227,6 +335,21 @@ class ChefMateApp(tk.Tk):
         if screen_name not in self.frames:
             self.logger.error(f"Screen not found: {screen_name}")
             return
+
+        # Check if trying to navigate away from RobotScreen while robot is running
+        robot_screen = self.frames.get("RobotScreen")
+        if robot_screen and robot_screen.winfo_viewable() and screen_name != "RobotScreen":
+            if hasattr(robot_screen, 'is_running') and robot_screen.is_running:
+                response = messagebox.askyesno(
+                    "Robot Running",
+                    "The robot is currently executing an order.\n\n"
+                    "Do you want to stop the robot and navigate away?",
+                    icon="warning"
+                )
+                if not response:
+                    return
+                # Stop the robot execution without asking again
+                robot_screen.stop_execution(ask_confirmation=False)
 
         self.logger.info(f"Showing screen: {screen_name}")
 
@@ -321,6 +444,34 @@ class ChefMateApp(tk.Tk):
             bool: True if successful
         """
         try:
+            # Check if robot hardware is available
+            if not ROBOT_AVAILABLE:
+                self.logger.warning("Robot hardware not available - running in demo mode")
+                if status_callback:
+                    status_callback("⚠️ Robot hardware not available (running demo mode)", "warning")
+
+                # Simulate robot execution for testing UI and sounds
+                import time
+                from config.recipes import get_pizza_ingredients
+                ingredients = get_pizza_ingredients(pizza_name)
+
+                for i, ingredient in enumerate(ingredients, 1):
+                    if status_callback:
+                        status_callback(f"🔍 Searching for {ingredient}...", "info")
+                    time.sleep(1)
+
+                    if status_callback:
+                        status_callback(f"✓ Target cube found!", "success")
+                    time.sleep(0.5)
+
+                    if status_callback:
+                        status_callback(f"📦 Cube delivered to home ({i}/{len(ingredients)})", "success")
+                    time.sleep(1)
+
+                if status_callback:
+                    status_callback("✅ Order completed (demo mode)", "success")
+                return True
+
             # Create patrol system if not already created
             if not self.patrol_system:
                 self.logger.info("Initializing IntegratedPatrolGrabSystem...")
@@ -438,6 +589,10 @@ class ChefMateApp(tk.Tk):
         self.logger.info("Cleaning up resources...")
 
         try:
+            # Cleanup audio system
+            if self.audio:
+                self.audio.cleanup()
+
             # Cleanup patrol system
             if self.patrol_system:
                 self.patrol_system.cleanup()

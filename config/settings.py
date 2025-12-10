@@ -72,51 +72,51 @@ INGREDIENT_CLASSES = [
 # Only integrated_patrol_grab.py and JSON config files should define robot control parameters
 
 # ============================================================================
-# UI THEME - MODERN STYLE (IRIS-inspired)
+# UI THEME - ITALIAN PIZZA RESTAURANT THEME
 # ============================================================================
 
-# Main colors - Modern Material Design inspired
-COLOR_PRIMARY = "#2196F3"       # Blue (main accent)
-COLOR_SECONDARY = "#FF9800"     # Orange (secondary)
-COLOR_SUCCESS = "#4CAF50"       # Green (success)
-COLOR_WARNING = "#FF9800"       # Orange (warning)
-COLOR_DANGER = "#F44336"        # Red (danger)
-COLOR_INFO = "#00BCD4"          # Cyan (info)
-COLOR_PURPLE = "#9C27B0"        # Purple (video/special)
+# Main colors - Italian Pizza Restaurant Palette
+COLOR_PRIMARY = "#7F1100"       # Rich deep red (pizza sauce red)
+COLOR_SECONDARY = "#BF9861"     # Warm tan/gold (crust/bread color)
+COLOR_SUCCESS = "#02332D"       # Deep teal/forest green (basil/herbs)
+COLOR_WARNING = "#BF9861"       # Warm tan (warning accent)
+COLOR_DANGER = "#7F1100"        # Deep red (danger)
+COLOR_INFO = "#02332D"          # Deep teal (info)
+COLOR_PURPLE = "#BF9861"        # Warm gold (special features)
 
-# Background colors - Softer, more pleasing palette
-COLOR_BG_DARK = "#fafafa"       # Very light gray background (main)
-COLOR_BG_LIGHT = "#FFFFFF"      # Pure white background (panels)
-COLOR_BG_MEDIUM = "#f5f5f5"     # Soft gray (card backgrounds)
+# Background colors - Cozy Italian restaurant feel
+COLOR_BG_DARK = "#DACFBD"       # Warm beige/cream (main background)
+COLOR_BG_LIGHT = "#DACFBD"      # Warm beige/cream (panels)
+COLOR_BG_MEDIUM = "#BF9861"     # Warm tan/gold (card accents)
 
 # Title bar colors
-COLOR_TITLE_BAR = "#1976D2"     # Dark blue title bar
-COLOR_TITLE_TEXT = "#FFFFFF"    # White text on title
-COLOR_TITLE_SUBTITLE = "#B3E5FC"  # Light blue subtitle
+COLOR_TITLE_BAR = "#7F1100"     # Deep red title bar
+COLOR_TITLE_TEXT = "#DACFBD"    # Cream text on title
+COLOR_TITLE_SUBTITLE = "#BF9861"  # Gold subtitle
 
 # Status bar colors
-COLOR_STATUS_BAR = "#333333"    # Dark status bar
-COLOR_STATUS_TEXT = "#FFFFFF"   # White status text
+COLOR_STATUS_BAR = "#02332D"    # Deep teal status bar
+COLOR_STATUS_TEXT = "#DACFBD"   # Cream status text
 
 # Text colors
-COLOR_TEXT_LIGHT = "#FFFFFF"    # White text
-COLOR_TEXT_DARK = "#333333"     # Dark text
-COLOR_TEXT_GRAY = "#666666"     # Gray text
-COLOR_TEXT_MUTED = "#999999"    # Muted text
+COLOR_TEXT_LIGHT = "#DACFBD"    # Cream text (on dark backgrounds)
+COLOR_TEXT_DARK = "#7F1100"     # Deep red text (on light backgrounds)
+COLOR_TEXT_GRAY = "#02332D"     # Deep teal text (secondary)
+COLOR_TEXT_MUTED = "#BF9861"    # Warm gold (muted text)
 
 # Button colors
-BUTTON_PRIMARY = "#2196F3"      # Blue button
-BUTTON_PRIMARY_HOVER = "#1976D2"
-BUTTON_SECONDARY = "#FF9800"    # Orange button
-BUTTON_SECONDARY_HOVER = "#F57C00"
-BUTTON_SUCCESS = "#4CAF50"      # Green button
-BUTTON_SUCCESS_HOVER = "#388E3C"
-BUTTON_DANGER = "#F44336"       # Red button
-BUTTON_DANGER_HOVER = "#D32F2F"
-BUTTON_INFO = "#00BCD4"         # Cyan button
-BUTTON_INFO_HOVER = "#0097A7"
-BUTTON_PURPLE = "#9C27B0"       # Purple button
-BUTTON_PURPLE_HOVER = "#7B1FA2"
+BUTTON_PRIMARY = "#7F1100"      # Deep red button
+BUTTON_PRIMARY_HOVER = "#5F0D00"
+BUTTON_SECONDARY = "#BF9861"    # Warm gold button
+BUTTON_SECONDARY_HOVER = "#A67E4D"
+BUTTON_SUCCESS = "#02332D"      # Deep teal button
+BUTTON_SUCCESS_HOVER = "#012620"
+BUTTON_DANGER = "#7F1100"       # Deep red button
+BUTTON_DANGER_HOVER = "#5F0D00"
+BUTTON_INFO = "#02332D"         # Deep teal button
+BUTTON_INFO_HOVER = "#012620"
+BUTTON_PURPLE = "#BF9861"       # Warm gold button
+BUTTON_PURPLE_HOVER = "#A67E4D"
 
 # ============================================================================
 # FONTS - Modern Style

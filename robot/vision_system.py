@@ -213,19 +213,42 @@ class VisionSystem:
                         'class_id': class_id
                     }
 
-                    # Draw bounding box
+                    # Draw bounding box with thicker lines and shadow for visibility
                     color = (0, 255, 0)  # Green
-                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+
+                    # Draw shadow (black outline)
+                    cv2.rectangle(annotated_frame, (x1-2, y1-2), (x2+2, y2+2), (0, 0, 0), 5)
+                    # Draw main box
+                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 4)
+
+                    # Format class name for display
+                    display_name = class_name.replace('_', ' ').title()
 
                     # Draw label with background
-                    label = f"{class_name}: {confidence:.2f}"
-                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+                    label = f"{display_name}: {confidence:.0%}"
+                    font_scale = 0.8
+                    font_thickness = 2
+                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, font_thickness)[0]
+
+                    # Label background with padding
+                    padding = 8
+                    label_y_pos = y1 - label_size[1] - padding * 2 if y1 - label_size[1] - padding * 2 > 0 else y2 + label_size[1] + padding * 2
+
+                    # Draw label background (black shadow)
                     cv2.rectangle(annotated_frame,
-                                  (x1, y1 - label_size[1] - 10),
-                                  (x1 + label_size[0], y1),
+                                  (x1 - 2, label_y_pos - label_size[1] - padding - 2),
+                                  (x1 + label_size[0] + padding * 2 + 2, label_y_pos + padding + 2),
+                                  (0, 0, 0), -1)
+                    # Draw label background (colored)
+                    cv2.rectangle(annotated_frame,
+                                  (x1, label_y_pos - label_size[1] - padding),
+                                  (x1 + label_size[0] + padding * 2, label_y_pos + padding),
                                   color, -1)
-                    cv2.putText(annotated_frame, label, (x1, y1 - 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    # Draw text
+                    cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), font_thickness + 2)
+                    cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                cv2.FONT_HERSHEY_DUPLEX, font_scale, (255, 255, 255), font_thickness)
 
             return annotated_frame, detection
 

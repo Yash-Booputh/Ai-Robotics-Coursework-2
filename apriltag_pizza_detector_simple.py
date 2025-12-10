@@ -460,7 +460,6 @@ class ChefSurpriseDetector:
 
         if stable_gesture == "THUMBSUP" and self.current_pizza and not self.locked_pizza:
             self.locked_pizza = self.current_pizza.copy()
-            self.save_order(self.locked_pizza)
             self.gesture_cooldown = self.cooldown_frames
             self.last_gesture = "THUMBSUP"
             self.hand_detector.gesture_history.clear()
@@ -479,12 +478,13 @@ class ChefSurpriseDetector:
             )
             root.destroy()
 
-            if response:  # User clicked Yes
+            if response:  # User clicked Yes - save order and proceed
+                self.save_order(self.locked_pizza)
                 self.user_wants_checkout = True
                 self.should_exit = True
                 print("✅ Proceeding to checkout...")
-            else:  # User clicked No - reset
-                print("🔄 Resetting order...")
+            else:  # User clicked No - reset everything
+                print("🔄 Resetting order - starting fresh...")
                 self.locked_pizza = None
                 self.current_pizza = None
                 self.surprise_mode = False
@@ -643,7 +643,27 @@ class ChefSurpriseDetector:
                 cv2.imshow(window_name, frame)
 
                 key = cv2.waitKey(1) & 0xFF
+
+                # Check if window was closed (X button clicked)
+                try:
+                    # Check multiple properties to ensure window is still open
+                    visible = cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE)
+                    autosize = cv2.getWindowProperty(window_name, cv2.WND_PROP_AUTOSIZE)
+
+                    # If any property returns -1, window was closed
+                    if visible < 0 or autosize < 0:
+                        print("\n👋 Window closed by user")
+                        break
+                except cv2.error:
+                    # Window was destroyed
+                    print("\n👋 Window closed by user")
+                    break
+                except Exception:
+                    # Any other error means window is gone
+                    print("\n👋 Window closed by user")
+                    break
                 if key == ord('q'):
+                    print("\n👋 Quit requested")
                     break
                 elif key == ord('r'):
                     self.surprise_mode = False

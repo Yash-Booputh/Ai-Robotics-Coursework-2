@@ -7,8 +7,8 @@ import tkinter as tk
 from tkinter import ttk
 from .widgets import ModernButton, ScrollableFrame
 from config.settings import (
-    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_INFO, COLOR_PURPLE,
-    COLOR_BG_DARK, COLOR_BG_LIGHT, COLOR_TEXT_DARK, COLOR_TEXT_GRAY,
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_SUCCESS, COLOR_INFO, COLOR_PURPLE,
+    COLOR_BG_DARK, COLOR_BG_LIGHT, COLOR_TEXT_DARK, COLOR_TEXT_GRAY, COLOR_TEXT_MUTED,
     FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
 )
 
@@ -105,7 +105,7 @@ class HomeScreen(ttk.Frame):
             buttons_container,
             text="APRILTAG PIZZA\n\nChef Surprise with\nAprilTag & gestures",
             command=self.open_apriltag_order,
-            bg="#FF9800"  # Orange color
+            bg=COLOR_SECONDARY  # Warm gold color
         )
         btn_apriltag.grid(row=0, column=1, padx=5, pady=8, sticky='nsew', ipady=15)
 
@@ -166,9 +166,15 @@ class HomeScreen(ttk.Frame):
             text="AI in Robotics - Middlesex University Mauritius",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             bg=COLOR_BG_LIGHT,
-            fg="#999999"
+            fg=COLOR_TEXT_MUTED
         )
         footer_label.pack(pady=15)
+
+    def on_show(self):
+        """Called when screen is shown"""
+        # Ensure VisionSystem camera is stopped when returning to home
+        # This prevents camera conflicts when launching AprilTag detector
+        self.controller.stop_vision_camera()
 
     def open_pizza_menu(self):
         """Open pizza menu screen"""
@@ -183,6 +189,14 @@ class HomeScreen(ttk.Frame):
 
         # Run the standalone AprilTag detector
         try:
+            # IMPORTANT: Stop the VisionSystem camera before launching AprilTag detector
+            # to prevent camera access conflicts
+            self.controller.stop_vision_camera()
+
+            # Give the camera time to fully release
+            import time
+            time.sleep(0.5)
+
             script_path = Path(__file__).parent.parent / "apriltag_pizza_detector_simple.py"
 
             # Inform user

@@ -14,9 +14,9 @@ import math
 import random
 
 from config.settings import (
-    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING,
-    COLOR_BG_DARK, COLOR_BG_MEDIUM, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK,
-    FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING,
+    COLOR_BG_DARK, COLOR_BG_MEDIUM, COLOR_BG_LIGHT, COLOR_TEXT_LIGHT, COLOR_TEXT_DARK,
+    COLOR_TEXT_GRAY, FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
 )
 from config.recipes import get_pizza_ingredients, get_ingredient_display_name, PIZZA_RECIPES
 
@@ -129,14 +129,18 @@ class RobotScreen(ttk.Frame):
         camera_title.pack(pady=10)
 
         # Camera display (smaller, fixed size)
+        camera_container = tk.Frame(camera_frame, bg=COLOR_TEXT_GRAY, relief=tk.SUNKEN, borderwidth=2)
+        camera_container.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
         self.camera_label = tk.Label(
-            camera_frame,
-            bg=COLOR_BG_DARK,
-            width=45,
-            height=8,
+            camera_container,
+            bg=COLOR_TEXT_GRAY,
+            fg=COLOR_TEXT_LIGHT,
+            text="Camera feed will appear here\nwhen robot starts",
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             wraplength=350
         )
-        self.camera_label.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.camera_label.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
 
         # FPS label
         self.fps_label = tk.Label(
@@ -149,29 +153,29 @@ class RobotScreen(ttk.Frame):
         self.fps_label.pack(pady=(0, 10))
 
         # Center: Pizza Maker Animation
-        pizza_frame = tk.Frame(middle_frame, bg="#2C1810", relief=tk.RAISED, borderwidth=3)
+        pizza_frame = tk.Frame(middle_frame, bg=COLOR_TEXT_GRAY, relief=tk.RAISED, borderwidth=3)
         pizza_frame.grid(row=0, column=1, sticky="nsew", padx=5)
 
         pizza_title = tk.Label(
             pizza_frame,
             text="Pizza Maker",
             font=(FONT_FAMILY, FONT_SIZE_LARGE, "bold"),
-            bg="#2C1810",
-            fg="#FFD700"
+            bg=COLOR_TEXT_GRAY,
+            fg=COLOR_SECONDARY
         )
         pizza_title.pack(pady=10)
 
         # Pizza canvas (fixed size, centered, smaller for laptop screens)
-        canvas_container = tk.Frame(pizza_frame, bg="#2C1810")
+        canvas_container = tk.Frame(pizza_frame, bg=COLOR_TEXT_GRAY)
         canvas_container.pack(fill=tk.BOTH, expand=True)
 
         self.pizza_canvas = tk.Canvas(
             canvas_container,
             width=380,
             height=380,
-            bg="#1A0F08",
+            bg=COLOR_BG_DARK,
             highlightthickness=2,
-            highlightbackground="#8B4513"
+            highlightbackground=COLOR_BG_MEDIUM
         )
         self.pizza_canvas.pack(padx=10, pady=10, expand=True)
 
@@ -180,8 +184,8 @@ class RobotScreen(ttk.Frame):
             pizza_frame,
             text="Waiting for order...",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg="#2C1810",
-            fg="#FFD700",
+            bg=COLOR_TEXT_GRAY,
+            fg=COLOR_SECONDARY,
             wraplength=430
         )
         self.pizza_status_label.pack(pady=(0, 10))
@@ -307,7 +311,7 @@ class RobotScreen(ttk.Frame):
 
         self.log_text = tk.Text(
             log_container,
-            bg="#FFFFFF",
+            bg=COLOR_BG_LIGHT,
             fg=COLOR_TEXT_DARK,
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
             height=4,
@@ -412,9 +416,9 @@ class RobotScreen(ttk.Frame):
 
                 messagebox.showinfo("Success", f"{self.pizza_name} is ready!")
             else:
-                self.add_log("Order failed")
+                self.add_log("Order failed - could not find all ingredients")
                 self.status_label.configure(text="Failed", fg=COLOR_DANGER)
-                messagebox.showerror("Error", "Order execution failed")
+                messagebox.showerror("Order Failed", "Could not find all ingredients!\n\nSome ingredients may be missing or out of view.")
 
         except Exception as e:
             self.add_log(f"Error: {str(e)}")
@@ -439,6 +443,20 @@ class RobotScreen(ttk.Frame):
         # Add to log
         self.add_log(message)
 
+        # Play sound effects based on message content
+        if hasattr(self.controller, 'audio') and self.controller.audio:
+            # Play "found" sound when ingredient is detected
+            if "found" in message.lower() or "detected" in message.lower():
+                self.controller.audio.play_found_cube()
+
+            # Play "delivery" sound when cube is dropped/delivered
+            elif "delivered" in message.lower() or "dropped" in message.lower() or "placed" in message.lower():
+                self.controller.audio.play_drop_cube()
+
+            # Play error sound on errors
+            elif status_type == "error" or "error" in message.lower() or "failed" in message.lower():
+                self.controller.audio.play_error()
+
         # Update checklist and pizza animation if ingredient picked
         if "Picked" in message or "delivered" in message or "grabbed" in message.lower():
             # Check which ingredient was grabbed
@@ -448,13 +466,13 @@ class RobotScreen(ttk.Frame):
                 # Add ingredient to pizza animation
                 self.add_pizza_ingredient(ingredient)
 
+            # Update progress
+            self.current_index += 1
+
             # Update checklist
             for idx, (status_label, name_label) in enumerate(self.checklist_items):
                 if idx < self.current_index:
                     status_label.configure(text="[X]", fg=COLOR_SUCCESS)
-
-            # Update progress
-            self.current_index += 1
             progress = (self.current_index / len(self.ingredients_list)) * 100
             self.progress_var.set(progress)
             self.progress_text.configure(text=f"{self.current_index} / {len(self.ingredients_list)} ingredients")
@@ -479,7 +497,7 @@ class RobotScreen(ttk.Frame):
         frame_count = 0
         fps = 0
 
-        while self.camera_active and self.is_running:
+        while self.camera_active:
             try:
                 # Try to get frame from controller's pick_sequence patrol_system
                 if (hasattr(self.controller, 'pick_sequence') and
@@ -530,20 +548,27 @@ class RobotScreen(ttk.Frame):
         """Stop camera feed"""
         self.camera_active = False
 
-    def stop_execution(self):
-        """Stop robot execution"""
-        response = messagebox.askyesno(
-            "Stop Execution",
-            "Are you sure you want to stop?\nThe robot will return to home position.",
-            icon="warning"
-        )
+    def stop_execution(self, ask_confirmation=True):
+        """
+        Stop robot execution
 
-        if response:
-            self.add_log("Stopping execution...")
-            self.is_running = False
-            self.controller.stop_pick_sequence()
-            self.status_label.configure(text="Stopped", fg=COLOR_WARNING)
-            self.stop_btn.configure(state=tk.DISABLED)
+        Args:
+            ask_confirmation: Whether to show confirmation dialog (default True)
+        """
+        if ask_confirmation:
+            response = messagebox.askyesno(
+                "Stop Execution",
+                "Are you sure you want to stop?\nThe robot will return to home position.",
+                icon="warning"
+            )
+            if not response:
+                return
+
+        self.add_log("Stopping execution...")
+        self.is_running = False
+        self.controller.stop_pick_sequence()
+        self.status_label.configure(text="Stopped", fg=COLOR_WARNING)
+        self.stop_btn.configure(state=tk.DISABLED)
 
     def add_log(self, message):
         """
@@ -636,8 +661,8 @@ class RobotScreen(ttk.Frame):
             self.pizza_center_y - 140,
             self.pizza_center_x + 140,
             self.pizza_center_y + 140,
-            fill="#3D2817",
-            outline="#8B4513",
+            fill=COLOR_TEXT_GRAY,
+            outline=COLOR_BG_MEDIUM,
             width=2,
             tags="oven"
         )
@@ -657,8 +682,8 @@ class RobotScreen(ttk.Frame):
                 self.pizza_center_y - 120,
                 self.pizza_center_x + 120,
                 self.pizza_center_y + 120,
-                fill="#DC143C",
-                outline="#8B0000",
+                fill=COLOR_PRIMARY,
+                outline=COLOR_DANGER,
                 width=3,
                 tags="pizza_base"
             )
@@ -772,7 +797,7 @@ class RobotScreen(ttk.Frame):
         """Mark pizza as complete"""
         self.pizza_status_label.config(
             text=f"Pizza Complete! {self.pizza_name} is ready!",
-            fg="#4CAF50"
+            fg=COLOR_SUCCESS
         )
 
         # Add sparkles
@@ -785,12 +810,17 @@ class RobotScreen(ttk.Frame):
 
         for x, y in sparkle_positions:
             self.pizza_canvas.create_text(
-                x, y, text="✨", font=("Arial", 25), fill="#FFD700"
+                x, y, text="✨", font=("Arial", 25), fill=COLOR_SECONDARY
             )
 
     # =========================================================================
     # END PIZZA MAKER ANIMATION METHODS
     # =========================================================================
+
+    def on_hide(self):
+        """Called when screen is hidden"""
+        # Stop camera feed when leaving the screen
+        self.stop_camera()
 
     def go_home(self):
         """Go back to home screen"""

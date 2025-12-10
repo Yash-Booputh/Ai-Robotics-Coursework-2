@@ -7,8 +7,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from config.settings import (
-    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_BG_DARK, COLOR_BG_MEDIUM,
-    COLOR_TEXT_LIGHT, FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE,
+    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_BG_DARK, COLOR_BG_MEDIUM, COLOR_BG_LIGHT,
+    COLOR_TEXT_LIGHT, COLOR_TEXT_DARK, COLOR_TEXT_GRAY, COLOR_TEXT_MUTED, COLOR_INFO,
+    BUTTON_SUCCESS_HOVER, FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE,
     FONT_SIZE_NORMAL
 )
 from config.recipes import PIZZA_RECIPES, get_ingredient_display_name
@@ -54,19 +55,19 @@ class CartScreen(ttk.Frame):
         )
         title_label.pack()
 
-        # Order details container - white card with proportional sizing
+        # Order details container - cream card with proportional sizing
         details_frame = tk.Frame(
             main_frame,
-            bg="#FFFFFF",
+            bg=COLOR_BG_LIGHT,
             relief=tk.SOLID,
             borderwidth=1,
-            highlightbackground="#e0e0e0",
+            highlightbackground=COLOR_BG_MEDIUM,
             highlightthickness=1
         )
         details_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
 
         # Pizza info section - reduced padding
-        self.pizza_info_frame = tk.Frame(details_frame, bg="#FFFFFF")
+        self.pizza_info_frame = tk.Frame(details_frame, bg=COLOR_BG_LIGHT)
         self.pizza_info_frame.pack(fill=tk.BOTH, expand=True, padx=25, pady=20)
 
         # Create initial "no order" message
@@ -74,13 +75,13 @@ class CartScreen(ttk.Frame):
             self.pizza_info_frame,
             text="No pizza in cart",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg="#FFFFFF",
-            fg="#9E9E9E"  # Light gray
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_MUTED
         )
         self.no_order_label.pack(expand=True)
 
         # Buttons frame - compact and clean
-        buttons_frame = tk.Frame(main_frame, bg="#FFFFFF", relief=tk.SOLID, borderwidth=1)
+        buttons_frame = tk.Frame(main_frame, bg=COLOR_BG_LIGHT, relief=tk.SOLID, borderwidth=1)
         buttons_frame.pack(fill=tk.X, pady=0, ipady=10)
 
         # Back button - compact
@@ -88,10 +89,10 @@ class CartScreen(ttk.Frame):
             buttons_frame,
             text="← Back to Menu",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
-            bg="#616161",  # Darker gray for better visibility
-            fg="#FFFFFF",  # White text
-            activebackground="#424242",
-            activeforeground="#FFFFFF",
+            bg=COLOR_TEXT_GRAY,
+            fg=COLOR_TEXT_LIGHT,
+            activebackground=COLOR_INFO,
+            activeforeground=COLOR_TEXT_LIGHT,
             command=self.go_back,
             relief=tk.RAISED,
             borderwidth=2,
@@ -107,9 +108,9 @@ class CartScreen(ttk.Frame):
             text="Place Order & Start Robot 🚀",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
             bg=COLOR_SUCCESS,
-            fg="#FFFFFF",
-            activebackground="#388E3C",
-            activeforeground="#FFFFFF",
+            fg=COLOR_TEXT_LIGHT,
+            activebackground=BUTTON_SUCCESS_HOVER,
+            activeforeground=COLOR_TEXT_LIGHT,
             command=self.place_order,
             relief=tk.RAISED,
             borderwidth=2,
@@ -141,8 +142,8 @@ class CartScreen(ttk.Frame):
                 self.pizza_info_frame,
                 text="No pizza in cart",
                 font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-                bg="#FFFFFF",
-                fg="#9E9E9E"  # Light gray
+                bg=COLOR_BG_LIGHT,
+                fg=COLOR_TEXT_MUTED
             )
             self.no_order_label.pack(expand=True)
             self.order_btn.configure(state=tk.DISABLED)
@@ -161,9 +162,9 @@ class CartScreen(ttk.Frame):
         name_label = tk.Label(
             self.pizza_info_frame,
             text=pizza_data["name"],
-            font=(FONT_FAMILY, 20, "bold"),  # Reduced size
-            bg="#FFFFFF",
-            fg="#212121"  # Dark gray
+            font=(FONT_FAMILY, 20, "bold"),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_DARK
         )
         name_label.pack(pady=(0, 8))
 
@@ -171,9 +172,9 @@ class CartScreen(ttk.Frame):
         desc_label = tk.Label(
             self.pizza_info_frame,
             text=pizza_data["description"],
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL),  # Reduced size
-            bg="#FFFFFF",
-            fg="#616161",  # Medium gray
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_GRAY,
             wraplength=600
         )
         desc_label.pack(pady=(0, 12))
@@ -181,7 +182,7 @@ class CartScreen(ttk.Frame):
         # Divider - thinner
         tk.Frame(
             self.pizza_info_frame,
-            bg="#E0E0E0",  # Light gray divider
+            bg=COLOR_BG_MEDIUM,
             height=1
         ).pack(fill=tk.X, pady=12)
 
@@ -189,26 +190,26 @@ class CartScreen(ttk.Frame):
         ing_title = tk.Label(
             self.pizza_info_frame,
             text="Robot will pick these ingredients:",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),  # Reduced size
-            bg="#FFFFFF",
-            fg="#212121"  # Dark gray
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_DARK
         )
         ing_title.pack(pady=(0, 10))
 
         # Ingredients list - more compact
-        ingredients_frame = tk.Frame(self.pizza_info_frame, bg="#FFFFFF")
+        ingredients_frame = tk.Frame(self.pizza_info_frame, bg=COLOR_BG_LIGHT)
         ingredients_frame.pack()
 
         for idx, ingredient in enumerate(pizza_data["ingredients"], 1):
-            ing_row = tk.Frame(ingredients_frame, bg="#FFFFFF")
-            ing_row.pack(fill=tk.X, pady=3)  # Reduced spacing
+            ing_row = tk.Frame(ingredients_frame, bg=COLOR_BG_LIGHT)
+            ing_row.pack(fill=tk.X, pady=3)
 
             # Number
             num_label = tk.Label(
                 ing_row,
                 text=f"{idx}.",
-                font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),  # Reduced size
-                bg="#FFFFFF",
+                font=(FONT_FAMILY, FONT_SIZE_NORMAL, "bold"),
+                bg=COLOR_BG_LIGHT,
                 fg=COLOR_PRIMARY,
                 width=3
             )
@@ -218,37 +219,37 @@ class CartScreen(ttk.Frame):
             ing_label = tk.Label(
                 ing_row,
                 text=get_ingredient_display_name(ingredient),
-                font=(FONT_FAMILY, FONT_SIZE_NORMAL),  # Reduced size
-                bg="#FFFFFF",
-                fg="#424242"  # Dark gray
+                font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+                bg=COLOR_BG_LIGHT,
+                fg=COLOR_TEXT_GRAY
             )
             ing_label.pack(side=tk.LEFT, padx=8)
 
         # Divider
         tk.Frame(
             self.pizza_info_frame,
-            bg="#E0E0E0",  # Light gray divider
+            bg=COLOR_BG_MEDIUM,
             height=1
         ).pack(fill=tk.X, pady=12)
 
         # Price - more compact
-        price_frame = tk.Frame(self.pizza_info_frame, bg="#FFFFFF")
+        price_frame = tk.Frame(self.pizza_info_frame, bg=COLOR_BG_LIGHT)
         price_frame.pack()
 
         price_label_text = tk.Label(
             price_frame,
             text="Total:",
-            font=(FONT_FAMILY, FONT_SIZE_NORMAL),  # Reduced size
-            bg="#FFFFFF",
-            fg="#424242"  # Dark gray
+            font=(FONT_FAMILY, FONT_SIZE_NORMAL),
+            bg=COLOR_BG_LIGHT,
+            fg=COLOR_TEXT_GRAY
         )
         price_label_text.pack(side=tk.LEFT, padx=(0, 15))
 
         price_label = tk.Label(
             price_frame,
             text=pizza_data["price"],
-            font=(FONT_FAMILY, 22, "bold"),  # Reduced size
-            bg="#FFFFFF",
+            font=(FONT_FAMILY, 22, "bold"),
+            bg=COLOR_BG_LIGHT,
             fg=COLOR_SUCCESS
         )
         price_label.pack(side=tk.LEFT)
@@ -271,6 +272,10 @@ class CartScreen(ttk.Frame):
         )
 
         if response:
+            # Play menu sound for the ordered pizza
+            if hasattr(self.controller, 'audio') and self.controller.audio:
+                self.controller.audio.play_pizza_sound(self.pizza_order)
+
             # Go to robot execution screen
             self.controller.start_robot_execution(self.pizza_order)
 

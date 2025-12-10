@@ -12,9 +12,9 @@ import time
 
 from .widgets import ModernButton
 from config.settings import (
-    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_INFO,
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_INFO,
     COLOR_BG_DARK, COLOR_BG_LIGHT, COLOR_BG_MEDIUM, COLOR_TEXT_DARK, COLOR_TEXT_GRAY,
-    FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
+    COLOR_TEXT_LIGHT, FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
 )
 
 
@@ -68,7 +68,7 @@ class LiveCameraScreen(ttk.Frame):
         paned.pack(fill=tk.BOTH, expand=True)
 
         # LEFT panel - LARGE Camera display (70% of space)
-        left_panel = tk.Frame(paned, bg='#1a1a1a')
+        left_panel = tk.Frame(paned, bg=COLOR_TEXT_GRAY)
         paned.add(left_panel, minsize=500, stretch="always")
 
         # Camera display
@@ -76,8 +76,8 @@ class LiveCameraScreen(ttk.Frame):
             left_panel,
             text="Camera Feed\n\nClick 'Start Camera' to begin",
             font=(FONT_FAMILY, 14),
-            bg='#1a1a1a',
-            fg='white'
+            bg=COLOR_TEXT_GRAY,
+            fg=COLOR_TEXT_LIGHT
         )
         self.camera_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -129,14 +129,14 @@ class LiveCameraScreen(ttk.Frame):
         ).pack(pady=(10, 5))
 
         # Current detection frame
-        current_frame = tk.Frame(right_panel, bg='#e8f5e9', relief=tk.SUNKEN, borderwidth=2)
+        current_frame = tk.Frame(right_panel, bg=COLOR_BG_MEDIUM, relief=tk.SUNKEN, borderwidth=2)
         current_frame.pack(fill=tk.X, padx=15, pady=8)
 
         tk.Label(
             current_frame,
             text="Current Detection",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, 'bold'),
-            bg='#e8f5e9',
+            bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_DARK
         ).pack(pady=(8, 3))
 
@@ -144,7 +144,7 @@ class LiveCameraScreen(ttk.Frame):
             current_frame,
             text="No detection",
             font=(FONT_FAMILY, FONT_SIZE_LARGE, 'bold'),
-            bg='#e8f5e9',
+            bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_GRAY
         )
         self.current_detection_label.pack(pady=(3, 5))
@@ -153,13 +153,13 @@ class LiveCameraScreen(ttk.Frame):
             current_frame,
             text="",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg='#e8f5e9',
+            bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_GRAY
         )
         self.confidence_label.pack(pady=(0, 8))
 
         # Model Status (NEW - shows if YOLO is loaded)
-        model_status_frame = tk.Frame(right_panel, bg='#e3f2fd', relief=tk.SUNKEN, borderwidth=1)
+        model_status_frame = tk.Frame(right_panel, bg=COLOR_BG_LIGHT, relief=tk.SUNKEN, borderwidth=1)
         model_status_frame.pack(fill=tk.X, padx=15, pady=8)
 
         model_loaded = self.controller.vision.is_model_loaded
@@ -170,7 +170,7 @@ class LiveCameraScreen(ttk.Frame):
             model_status_frame,
             text=model_text,
             font=(FONT_FAMILY, 9, 'bold'),
-            bg='#e3f2fd',
+            bg=COLOR_BG_LIGHT,
             fg=model_color
         )
         self.model_status_label.pack(pady=5)
@@ -214,7 +214,7 @@ class LiveCameraScreen(ttk.Frame):
 
         self.history_listbox = tk.Listbox(
             history_frame,
-            bg='#fafafa',
+            bg=COLOR_BG_LIGHT,
             fg=COLOR_TEXT_DARK,
             font=(FONT_FAMILY, 9),
             yscrollcommand=history_scrollbar.set,
@@ -262,15 +262,15 @@ class LiveCameraScreen(ttk.Frame):
             messagebox.showerror("Error", f"Failed to start camera:\n{str(e)}")
 
     def stop_camera(self):
-        """Stop camera display (but keep shared camera running for other screens)"""
+        """Stop camera display and release the VisionSystem camera"""
         self.camera_active = False
 
         if self.camera_thread:
             self.camera_thread.join(timeout=1.0)
 
-        # NOTE: We do NOT stop the shared VisionSystem camera here
-        # because other screens (like RobotScreen) might need it.
-        # The camera is managed at the application level in main.py
+        # Stop the shared VisionSystem camera to release it for other applications
+        # (e.g., AprilTag detector)
+        self.controller.stop_vision_camera()
 
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
@@ -339,10 +339,10 @@ class LiveCameraScreen(ttk.Frame):
             conf_color = COLOR_SUCCESS
         elif confidence >= 0.6:
             conf_text = f"Confidence: {confidence:.1%} (Good)"
-            conf_color = "#F39C12"
+            conf_color = COLOR_SECONDARY
         else:
             conf_text = f"Confidence: {confidence:.1%} (Low)"
-            conf_color = "#E74C3C"
+            conf_color = COLOR_DANGER
 
         self.confidence_label.configure(text=conf_text, fg=conf_color)
 
@@ -365,8 +365,6 @@ class LiveCameraScreen(ttk.Frame):
 
     def on_hide(self):
         """Called when screen is hidden"""
-        # Stop the display loop but DON'T stop the shared camera
-        # The camera might be needed by other screens (e.g., RobotScreen)
-        self.camera_active = False
-        if self.camera_thread:
-            self.camera_thread.join(timeout=1.0)
+        # Stop the camera when leaving the screen
+        if self.camera_active:
+            self.stop_camera()
