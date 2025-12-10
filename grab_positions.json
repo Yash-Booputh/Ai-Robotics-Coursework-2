@@ -1,170 +1,170 @@
 {
     "slot_1": {
         "slot_number": 1,
-        "timestamp": "2025-12-09 14:27:11",
+        "timestamp": "2025-12-10 13:08:53",
         "waypoint_1_safe_level": {
-            "servo_1": 116,
-            "servo_2": 74,
-            "servo_3": 36,
-            "servo_4": 90,
+            "servo_1": 115,
+            "servo_2": 97,
+            "servo_3": 38,
+            "servo_4": 42,
             "servo_5": 89,
-            "servo_6": 144
+            "servo_6": 4
         },
         "waypoint_2_grab": {
-            "servo_1": 116,
-            "servo_2": 74,
-            "servo_3": 36,
-            "servo_4": 90,
-            "servo_5": 89,
-            "servo_6": 146
-        },
-        "waypoint_3_delivery": {
-            "servo_1": 116,
-            "servo_2": 74,
-            "servo_3": 36,
-            "servo_4": 90,
-            "servo_5": 89,
-            "servo_6": 144
-        }
-    },
-    "slot_2": {
-        "slot_number": 2,
-        "timestamp": "2025-12-09 14:27:55",
-        "waypoint_1_safe_level": {
-            "servo_1": 96,
-            "servo_2": 88,
-            "servo_3": 34,
-            "servo_4": 76,
-            "servo_5": 89,
-            "servo_6": 140
-        },
-        "waypoint_2_grab": {
-            "servo_1": 94,
-            "servo_2": 88,
-            "servo_3": 34,
-            "servo_4": 76,
-            "servo_5": 89,
-            "servo_6": 146
-        },
-        "waypoint_3_delivery": {
-            "servo_1": 96,
-            "servo_2": 88,
-            "servo_3": 34,
-            "servo_4": 76,
-            "servo_5": 89,
-            "servo_6": 140
-        }
-    },
-    "slot_3": {
-        "slot_number": 3,
-        "timestamp": "2025-12-09 14:28:45",
-        "waypoint_1_safe_level": {
-            "servo_1": 74,
-            "servo_2": 74,
-            "servo_3": 58,
-            "servo_4": 56,
-            "servo_5": 83,
-            "servo_6": 156
-        },
-        "waypoint_2_grab": {
-            "servo_1": 74,
-            "servo_2": 74,
-            "servo_3": 58,
-            "servo_4": 56,
-            "servo_5": 83,
-            "servo_6": 158
-        },
-        "waypoint_3_delivery": {
-            "servo_1": 74,
-            "servo_2": 74,
-            "servo_3": 58,
-            "servo_4": 56,
-            "servo_5": 83,
-            "servo_6": 156
-        }
-    },
-    "slot_4": {
-        "slot_number": 4,
-        "timestamp": "2025-12-09 14:30:34",
-        "waypoint_1_safe_level": {
-            "servo_1": 94,
-            "servo_2": 88,
-            "servo_3": 0,
-            "servo_4": 76,
-            "servo_5": 89,
-            "servo_6": 152
-        },
-        "waypoint_2_grab": {
-            "servo_1": 94,
-            "servo_2": 88,
-            "servo_3": 0,
-            "servo_4": 76,
-            "servo_5": 89,
-            "servo_6": 154
-        },
-        "waypoint_3_delivery": {
-            "servo_1": 94,
-            "servo_2": 88,
-            "servo_3": 0,
-            "servo_4": 76,
-            "servo_5": 89,
-            "servo_6": 152
-        }
-    },
-    "slot_5": {
-        "slot_number": 5,
-        "timestamp": "2025-12-09 13:10:19",
-        "waypoint_1_safe_level": {
-            "servo_1": 94,
-            "servo_2": 94,
-            "servo_3": 0,
-            "servo_4": 70,
-            "servo_5": 89,
-            "servo_6": 142
-        },
-        "waypoint_2_grab": {
-            "servo_1": 94,
-            "servo_2": 94,
-            "servo_3": 0,
-            "servo_4": 70,
+            "servo_1": 117,
+            "servo_2": 75,
+            "servo_3": 38,
+            "servo_4": 84,
             "servo_5": 89,
             "servo_6": 150
         },
         "waypoint_3_delivery": {
-            "servo_1": 94,
-            "servo_2": 94,
+            "servo_1": 115,
+            "servo_2": 107,
             "servo_3": 0,
+            "servo_4": 0,
+            "servo_5": 89,
+            "servo_6": 122
+        }
+    },
+    "slot_2": {
+        "slot_number": 2,
+        "timestamp": "2025-12-10 11:52:08",
+        "waypoint_1_safe_level": {
+            "servo_1": 92,
+            "servo_2": 110,
+            "servo_3": 26,
+            "servo_4": 56,
+            "servo_5": 89,
+            "servo_6": 0
+        },
+        "waypoint_2_grab": {
+            "servo_1": 94,
+            "servo_2": 82,
+            "servo_3": 26,
+            "servo_4": 86,
+            "servo_5": 89,
+            "servo_6": 144
+        },
+        "waypoint_3_delivery": {
+            "servo_1": 94,
+            "servo_2": 102,
+            "servo_3": 0,
+            "servo_4": 0,
+            "servo_5": 89,
+            "servo_6": 76
+        }
+    },
+    "slot_3": {
+        "slot_number": 3,
+        "timestamp": "2025-12-10 11:53:52",
+        "waypoint_1_safe_level": {
+            "servo_1": 72,
+            "servo_2": 108,
+            "servo_3": 14,
+            "servo_4": 74,
+            "servo_5": 89,
+            "servo_6": 0
+        },
+        "waypoint_2_grab": {
+            "servo_1": 72,
+            "servo_2": 74,
+            "servo_3": 48,
             "servo_4": 70,
+            "servo_5": 87,
+            "servo_6": 144
+        },
+        "waypoint_3_delivery": {
+            "servo_1": 88,
+            "servo_2": 100,
+            "servo_3": 0,
+            "servo_4": 0,
+            "servo_5": 87,
+            "servo_6": 68
+        }
+    },
+    "slot_4": {
+        "slot_number": 4,
+        "timestamp": "2025-12-10 13:10:52",
+        "waypoint_1_safe_level": {
+            "servo_1": 113,
+            "servo_2": 91,
+            "servo_3": 12,
+            "servo_4": 40,
+            "servo_5": 89,
+            "servo_6": 2
+        },
+        "waypoint_2_grab": {
+            "servo_1": 113,
+            "servo_2": 79,
+            "servo_3": 12,
+            "servo_4": 62,
+            "servo_5": 93,
+            "servo_6": 146
+        },
+        "waypoint_3_delivery": {
+            "servo_1": 91,
+            "servo_2": 115,
+            "servo_3": 0,
+            "servo_4": 0,
+            "servo_5": 95,
+            "servo_6": 116
+        }
+    },
+    "slot_5": {
+        "slot_number": 5,
+        "timestamp": "2025-12-10 11:57:11",
+        "waypoint_1_safe_level": {
+            "servo_1": 92,
+            "servo_2": 104,
+            "servo_3": 0,
+            "servo_4": 50,
+            "servo_5": 89,
+            "servo_6": 2
+        },
+        "waypoint_2_grab": {
+            "servo_1": 92,
+            "servo_2": 80,
+            "servo_3": 0,
+            "servo_4": 82,
             "servo_5": 89,
             "servo_6": 142
+        },
+        "waypoint_3_delivery": {
+            "servo_1": 56,
+            "servo_2": 102,
+            "servo_3": 0,
+            "servo_4": 0,
+            "servo_5": 89,
+            "servo_6": 114
         }
     },
     "slot_6": {
         "slot_number": 6,
-        "timestamp": "2025-12-09 14:31:53",
+        "timestamp": "2025-12-10 11:58:11",
         "waypoint_1_safe_level": {
-            "servo_1": 74,
-            "servo_2": 76,
-            "servo_3": 26,
-            "servo_4": 60,
-            "servo_5": 69,
-            "servo_6": 152
+            "servo_1": 72,
+            "servo_2": 92,
+            "servo_3": 16,
+            "servo_4": 52,
+            "servo_5": 89,
+            "servo_6": 2
         },
         "waypoint_2_grab": {
             "servo_1": 74,
-            "servo_2": 76,
-            "servo_3": 26,
-            "servo_4": 60,
-            "servo_5": 69,
-            "servo_6": 154
+            "servo_2": 74,
+            "servo_3": 16,
+            "servo_4": 72,
+            "servo_5": 83,
+            "servo_6": 146
         },
         "waypoint_3_delivery": {
-            "servo_1": 74,
-            "servo_2": 76,
-            "servo_3": 26,
-            "servo_4": 60,
-            "servo_5": 69,
-            "servo_6": 152
+            "servo_1": 78,
+            "servo_2": 94,
+            "servo_3": 8,
+            "servo_4": 8,
+            "servo_5": 87,
+            "servo_6": 108
         }
     }
 }

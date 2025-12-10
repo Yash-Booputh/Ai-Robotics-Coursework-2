@@ -18,7 +18,8 @@ from config import (
     COLOR_BG_DARK, COLOR_TITLE_BAR, COLOR_TITLE_TEXT, COLOR_TITLE_SUBTITLE,
     COLOR_STATUS_BAR, COLOR_STATUS_TEXT, FONT_FAMILY
 )
-from robot import VisionSystem, PickSequence
+from robot import VisionSystem
+from integrated_patrol_grab import IntegratedPatrolGrabSystem
 from ui import (
     HomeScreen, MenuScreen, CartScreen, RobotScreen,
     FileUploadScreen, LiveCameraScreen
@@ -63,7 +64,7 @@ class ChefMateApp(tk.Tk):
         # Initialize vision system (for UI display only)
         self.logger.info("Initializing vision system...")
         self.vision = VisionSystem()
-        self.pick_sequence = None  # Will be created when needed
+        self.patrol_system = None  # Will be created when needed
 
         # Application state
         self.current_pizza_order = None
@@ -310,7 +311,7 @@ class ChefMateApp(tk.Tk):
 
     def execute_pick_sequence(self, pizza_name, status_callback=None):
         """
-        Execute the complete picking sequence
+        Execute the complete picking sequence using IntegratedPatrolGrabSystem
 
         Args:
             pizza_name: Name of pizza to make
@@ -320,18 +321,27 @@ class ChefMateApp(tk.Tk):
             bool: True if successful
         """
         try:
-            # Create pick sequence
-            self.pick_sequence = PickSequence(
-                self.vision,
-                status_callback
-            )
+            # Create patrol system if not already created
+            if not self.patrol_system:
+                self.logger.info("Initializing IntegratedPatrolGrabSystem...")
+                if status_callback:
+                    status_callback("🔧 Initializing patrol system...", "info")
 
-            # Start order
-            if not self.pick_sequence.start_order(pizza_name):
+                self.patrol_system = IntegratedPatrolGrabSystem()
+
+                self.logger.info("✓ IntegratedPatrolGrabSystem initialized")
+                if status_callback:
+                    status_callback("✅ Patrol system ready", "success")
+
+            # Check robot connection
+            if not self.patrol_system.check_connection():
+                self.logger.error("Robot not connected")
+                if status_callback:
+                    status_callback("❌ Robot not connected", "error")
                 return False
 
-            # Execute full order
-            return self.pick_sequence.execute_full_order()
+            # Execute pizza order
+            return self.patrol_system.execute_pizza_order(pizza_name, status_callback)
 
         except Exception as e:
             self.logger.error(f"Pick sequence error: {e}")
@@ -341,8 +351,9 @@ class ChefMateApp(tk.Tk):
 
     def stop_pick_sequence(self):
         """Stop the current pick sequence"""
-        if self.pick_sequence:
-            self.pick_sequence.cancel_order()
+        if self.patrol_system:
+            self.logger.warning("Emergency stop requested")
+            self.patrol_system.move_to_home()
 
     # =========================================================================
     # CAMERA AND DETECTION
@@ -399,11 +410,11 @@ class ChefMateApp(tk.Tk):
         """Handle application closing"""
         self.logger.info("Application closing...")
 
-        # Ask for confirmation if robot is running
-        if self.pick_sequence and self.pick_sequence.is_running:
+        # Ask for confirmation if robot might be running
+        if self.patrol_system:
             response = messagebox.askyesno(
                 "Confirm Exit",
-                "Robot is currently running!\n\nAre you sure you want to exit?",
+                "Are you sure you want to exit?\n\nThis will stop any running operations.",
                 icon="warning"
             )
             if not response:
@@ -411,7 +422,10 @@ class ChefMateApp(tk.Tk):
 
             # Stop robot
             self.logger.info("Stopping robot...")
-            self.pick_sequence.emergency_stop()
+            try:
+                self.patrol_system.move_to_home()
+            except:
+                pass
 
         # Cleanup
         self.cleanup()
@@ -424,9 +438,9 @@ class ChefMateApp(tk.Tk):
         self.logger.info("Cleaning up resources...")
 
         try:
-            # Cleanup pick sequence (includes patrol system)
-            if self.pick_sequence:
-                self.pick_sequence.cleanup()
+            # Cleanup patrol system
+            if self.patrol_system:
+                self.patrol_system.cleanup()
 
             # Stop camera
             if self.vision:
