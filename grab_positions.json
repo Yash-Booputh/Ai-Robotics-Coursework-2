@@ -1,30 +1,30 @@
 {
     "slot_1": {
         "slot_number": 1,
-        "timestamp": "2025-12-10 11:31:48",
+        "timestamp": "2025-12-10 13:08:53",
         "waypoint_1_safe_level": {
-            "servo_1": 112,
-            "servo_2": 96,
-            "servo_3": 35,
-            "servo_4": 56,
+            "servo_1": 115,
+            "servo_2": 97,
+            "servo_3": 38,
+            "servo_4": 42,
             "servo_5": 89,
-            "servo_6": 2
+            "servo_6": 4
         },
         "waypoint_2_grab": {
-            "servo_1": 116,
-            "servo_2": 68,
-            "servo_3": 47,
-            "servo_4": 82,
-            "servo_5": 93,
-            "servo_6": 145
+            "servo_1": 117,
+            "servo_2": 75,
+            "servo_3": 38,
+            "servo_4": 84,
+            "servo_5": 89,
+            "servo_6": 150
         },
         "waypoint_3_delivery": {
-            "servo_1": 104,
-            "servo_2": 104,
+            "servo_1": 115,
+            "servo_2": 107,
             "servo_3": 0,
             "servo_4": 0,
-            "servo_5": 93,
-            "servo_6": 70
+            "servo_5": 89,
+            "servo_6": 122
         }
     },
     "slot_2": {
@@ -85,30 +85,30 @@
     },
     "slot_4": {
         "slot_number": 4,
-        "timestamp": "2025-12-10 11:55:44",
+        "timestamp": "2025-12-10 13:10:52",
         "waypoint_1_safe_level": {
-            "servo_1": 112,
-            "servo_2": 108,
-            "servo_3": 0,
-            "servo_4": 50,
+            "servo_1": 113,
+            "servo_2": 91,
+            "servo_3": 12,
+            "servo_4": 40,
             "servo_5": 89,
             "servo_6": 2
         },
         "waypoint_2_grab": {
-            "servo_1": 114,
-            "servo_2": 78,
-            "servo_3": 0,
-            "servo_4": 92,
+            "servo_1": 113,
+            "servo_2": 79,
+            "servo_3": 12,
+            "servo_4": 62,
             "servo_5": 93,
-            "servo_6": 144
+            "servo_6": 146
         },
         "waypoint_3_delivery": {
-            "servo_1": 110,
-            "servo_2": 94,
-            "servo_3": 4,
-            "servo_4": 8,
-            "servo_5": 93,
-            "servo_6": 112
+            "servo_1": 91,
+            "servo_2": 115,
+            "servo_3": 0,
+            "servo_4": 0,
+            "servo_5": 95,
+            "servo_6": 116
         }
     },
     "slot_5": {
