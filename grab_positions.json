@@ -57,30 +57,30 @@
     },
     "slot_3": {
         "slot_number": 3,
-        "timestamp": "2025-12-11 12:21:56",
+        "timestamp": "2025-12-11 14:39:02",
         "waypoint_1_safe_level": {
-            "servo_1": 73,
-            "servo_2": 113,
-            "servo_3": 6,
-            "servo_4": 72,
+            "servo_1": 72,
+            "servo_2": 105,
+            "servo_3": 14,
+            "servo_4": 80,
             "servo_5": 89,
-            "servo_6": 2
+            "servo_6": 0
         },
         "waypoint_2_grab": {
-            "servo_1": 73,
-            "servo_2": 71,
-            "servo_3": 44,
-            "servo_4": 80,
-            "servo_5": 87,
-            "servo_6": 148
+            "servo_1": 72,
+            "servo_2": 73,
+            "servo_3": 38,
+            "servo_4": 88,
+            "servo_5": 89,
+            "servo_6": 138
         },
         "waypoint_3_delivery": {
-            "servo_1": 85,
-            "servo_2": 85,
-            "servo_3": 18,
+            "servo_1": 72,
+            "servo_2": 113,
+            "servo_3": 0,
             "servo_4": 0,
-            "servo_5": 87,
-            "servo_6": 110
+            "servo_5": 89,
+            "servo_6": 0
         }
     },
     "slot_4": {
