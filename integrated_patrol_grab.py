@@ -66,7 +66,8 @@ GRAB_SPEED = 1000          # Grabbing motion (very slow)
 DELIVERY_SPEED = 1500      # Delivery motion (very slow and controlled)
 
 # Delays between movements
-MOVEMENT_DELAY = 2.5  # 3 seconds between movements
+MOVEMENT_DELAY = 2.5  # Delay between waypoint movements
+SERVO_SEQUENTIAL_DELAY = 2.0  # Delay between each individual servo movement during delivery
 
 # Detection configuration
 CONFIDENCE_THRESHOLD = 0.5
@@ -87,7 +88,7 @@ GRIPPER_OPEN = 0      # 0° = OPEN
 # GRIPPER_CLOSED is dynamically determined from waypoint_2 servo_6 angle
 
 # Home position (rest position for robot arm - 6 servos)
-HOME_POSITION = [90, 164, 18, 0, 90, 90]
+HOME_POSITION = [90, 164, 18, 0, 90, 0]
 
 
 # ============================================================================
@@ -138,6 +139,9 @@ class IntegratedPatrolGrabSystem:
         # Current angles
         self.current_angles = {}
         self.read_current_angles()
+
+        # Stop flag for emergency stop
+        self.stop_requested = False
 
         # Initialize YOLO model
         self.model = None
@@ -240,7 +244,12 @@ class IntegratedPatrolGrabSystem:
             'servo_6': HOME_POSITION[5]
         }
         self.move_to_position(home_dict, MOVE_SPEED, "home position", exclude_gripper=False)
-        print("  ✓ At home position")
+
+        # Explicitly ensure gripper is fully open at home position
+        print(f"  Ensuring gripper is fully open ({GRIPPER_OPEN}°)...")
+        self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
+        time.sleep(0.5)
+        print("  ✓ At home position with gripper open")
 
     def check_connection(self):
         """Check if robot arm is connected"""
@@ -501,44 +510,56 @@ class IntegratedPatrolGrabSystem:
             print(f"        Servo 2: {current_servo_2}° → {servo_2_target}°")
             self.move_servo(2, servo_2_target, DELIVERY_SPEED)
 
-            print(f"\n        ⏳ Waiting 2.5 seconds for servo 2 to complete movement...")
+            print(f"\n        ⏳ Waiting {SERVO_SEQUENTIAL_DELAY} seconds for servo 2 to complete movement...")
             print(f"        (Ensuring arm is fully clear of shelf)")
-            time.sleep(2.5)
+            time.sleep(SERVO_SEQUENTIAL_DELAY)
 
             actual_servo_2 = self.current_angles.get(2, 'unknown')
             print(f"        ✓ Servo 2 now at: {actual_servo_2}°")
         else:
             print("        ⚠️  Warning: Servo 2 not found in waypoint 3!")
 
-        # STAGE 2: Move remaining servos (1, 3, 4, 5) - exclude servo 2 and servo 6
+        # STAGE 2: Move remaining servos (1, 3, 4, 5) SEQUENTIALLY - exclude servo 2 and servo 6
         print("\n" + "="*60)
-        print("  [STAGE 2] Moving remaining servos to complete waypoint 3")
+        print("  [STAGE 2] Moving remaining servos SEQUENTIALLY to complete waypoint 3")
         print("="*60)
         print("        Moving servos: 1, 3, 4, 5 (excluding 2 and 6)")
+        print(f"        Sequential delay between each servo: {SERVO_SEQUENTIAL_DELAY}s")
 
         gripper_before = self.current_angles.get(6, 'unknown')
         print(f"\n        Gripper angle BEFORE move: {gripper_before}° (should be CLOSED)")
 
-        # Move servos 1, 3, 4, 5 only (exclude servo 2 since it already moved, and exclude servo 6 gripper)
-        for servo_key, angle in waypoint_3.items():
+        # Move servos 1, 3, 4, 5 SEQUENTIALLY with delays (exclude servo 2 since it already moved, and exclude servo 6 gripper)
+        for servo_key, angle in sorted(waypoint_3.items()):
             servo_id = int(servo_key.split('_')[1])
 
             # Skip servo 2 (already moved) and servo 6 (gripper stays closed)
             if servo_id == 2 or servo_id == 6:
                 continue
 
-            print(f"          Moving Servo {servo_id} → {angle}°")
+            print(f"\n          Moving Servo {servo_id} → {angle}°")
             self.move_servo(servo_id, angle, DELIVERY_SPEED)
-            time.sleep(0.05)
+
+            print(f"          ⏳ Waiting {SERVO_SEQUENTIAL_DELAY}s for servo {servo_id} to complete...")
+            time.sleep(SERVO_SEQUENTIAL_DELAY)
+
+            actual_angle = self.current_angles.get(servo_id, 'unknown')
+            print(f"          ✓ Servo {servo_id} now at: {actual_angle}°")
 
         gripper_after = self.current_angles.get(6, 'unknown')
         print(f"\n        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
         print(f"        ✓ Reached waypoint 3 delivery position")
         time.sleep(0.5)
 
-        # Now open gripper to drop ingredient
-        print("\n  Opening gripper to drop ingredient...")
+        # Now open gripper to drop ingredient (with delay to ensure all servos settled)
+        print("\n" + "="*60)
+        print("  [FINAL] Opening gripper to drop ingredient...")
+        print("="*60)
         print(f"  Gripper BEFORE: {gripper_after}° (CLOSED)")
+        print(f"  ⏳ Waiting {SERVO_SEQUENTIAL_DELAY}s before opening gripper...")
+        time.sleep(SERVO_SEQUENTIAL_DELAY)
+
+        print(f"  Opening gripper to {GRIPPER_OPEN}°...")
         self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
         time.sleep(1.0)
         gripper_final = self.current_angles.get(6, 'unknown')
@@ -575,6 +596,11 @@ class IntegratedPatrolGrabSystem:
         print(f"   Total slots to check: {len(slot_keys)}\n")
 
         for idx, slot_key in enumerate(slot_keys, 1):
+            # Check if stop was requested
+            if self.stop_requested:
+                print("\n⚠️ STOP REQUESTED - Aborting patrol")
+                return None
+
             print(f"\n{'='*60}")
             print(f"[{slot_key}] (Slot {idx}/{len(slot_keys)})")
             print(f"{'='*60}")
@@ -668,6 +694,9 @@ class IntegratedPatrolGrabSystem:
             status_callback(f"🍕 Starting order: {pizza_name}", "info")
             status_callback(f"Ingredients needed: {len(ingredients_needed)}", "info")
 
+        # Reset stop flag at start
+        self.stop_requested = False
+
         # Move to home position
         self.move_to_home()
 
@@ -679,6 +708,13 @@ class IntegratedPatrolGrabSystem:
 
         # Find and grab each ingredient
         for index, ingredient in enumerate(ingredients_needed, 1):
+            # Check if stop was requested
+            if self.stop_requested:
+                print("\n⚠️ STOP REQUESTED - Aborting order")
+                if status_callback:
+                    status_callback("⚠️ Order stopped by user", "warning")
+                self.move_to_home()
+                return False
             display_name = get_ingredient_display_name(ingredient)
 
             print(f"\n{'='*60}")

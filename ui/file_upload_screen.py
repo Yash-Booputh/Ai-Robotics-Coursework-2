@@ -315,13 +315,20 @@ class FileUploadScreen(ttk.Frame):
         folder_path = filedialog.askdirectory(title="Select Folder with Images")
 
         if folder_path:
-            # Find all images in folder
+            # Find all images in folder (only this folder, not subdirectories)
             image_files = []
-            for root, dirs, files in os.walk(folder_path):
+            try:
+                files = os.listdir(folder_path)
                 for file in files:
-                    ext = os.path.splitext(file)[1].lower()
-                    if ext in SUPPORTED_IMAGE_FORMATS:
-                        image_files.append(os.path.join(root, file))
+                    file_path = os.path.join(folder_path, file)
+                    # Only process files (not directories)
+                    if os.path.isfile(file_path):
+                        ext = os.path.splitext(file)[1].lower()
+                        if ext in SUPPORTED_IMAGE_FORMATS:
+                            image_files.append(file_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to read folder:\n{str(e)}")
+                return
 
             if not image_files:
                 messagebox.showinfo("No Images", "No supported images found in folder")
@@ -352,8 +359,8 @@ class FileUploadScreen(ttk.Frame):
 
         # Check if already processed
         if file_path in self.processed_images:
-            annotated_image, detection = self.processed_images[file_path]
-            self.display_image(annotated_image, detection, os.path.basename(file_path))
+            annotated_image, detections = self.processed_images[file_path]
+            self.display_image(annotated_image, detections, os.path.basename(file_path))
             self.update_navigation()
             return
 
@@ -364,14 +371,14 @@ class FileUploadScreen(ttk.Frame):
                 messagebox.showerror("Error", f"Failed to load image:\n{os.path.basename(file_path)}")
                 return
 
-            # Run detection
-            annotated_image, detection = self.controller.detect_in_image(image)
+            # Run detection for ALL ingredients
+            annotated_image, detections = self.controller.detect_all_in_image(image)
 
             # Cache the result
-            self.processed_images[file_path] = (annotated_image, detection)
+            self.processed_images[file_path] = (annotated_image, detections)
 
             # Display result
-            self.display_image(annotated_image, detection, os.path.basename(file_path))
+            self.display_image(annotated_image, detections, os.path.basename(file_path))
             self.update_navigation()
 
         except Exception as e:
@@ -411,13 +418,13 @@ class FileUploadScreen(ttk.Frame):
             else:
                 self.next_btn.config(state=tk.NORMAL)
 
-    def display_image(self, image, detection, filename):
+    def display_image(self, image, detections, filename):
         """
-        Display processed image with detection
+        Display processed image with detections
 
         Args:
             image: Processed image with bounding boxes (BGR)
-            detection: Detection dictionary
+            detections: List of detection dictionaries
             filename: Image filename
         """
         try:
@@ -445,23 +452,38 @@ class FileUploadScreen(ttk.Frame):
             # Update filename
             self.filename_label.configure(text=f"File: {filename}")
 
-            # Update result label
-            if detection:
-                class_name = detection['class_name']
-                confidence = detection['confidence']
+            # Update result label - show summary of all detections
+            if detections and len(detections) > 0:
+                # Create summary text
+                if len(detections) == 1:
+                    detection = detections[0]
+                    class_name = detection['class_name']
+                    confidence = detection['confidence']
+                    result_text = f"{class_name.replace('_', ' ').title()}"
+                    conf_text = f"Confidence: {confidence:.1%}"
 
-                result_text = f"{class_name.replace('_', ' ').title()}"
-                conf_text = f"Confidence: {confidence:.1%}"
-
-                if confidence >= 0.8:
-                    color = COLOR_SUCCESS
-                    conf_text += " (Excellent)"
-                elif confidence >= 0.6:
-                    color = COLOR_SECONDARY
-                    conf_text += " (Good)"
+                    if confidence >= 0.8:
+                        color = COLOR_SUCCESS
+                        conf_text += " (Excellent)"
+                    elif confidence >= 0.6:
+                        color = COLOR_SECONDARY
+                        conf_text += " (Good)"
+                    else:
+                        color = COLOR_DANGER
+                        conf_text += " (Low)"
                 else:
-                    color = COLOR_DANGER
-                    conf_text += " (Low)"
+                    # Multiple detections - show count and list
+                    result_text = f"Found {len(detections)} ingredients"
+                    color = COLOR_SUCCESS
+
+                    # List all detected ingredients with confidence
+                    ingredients_list = []
+                    for det in detections:
+                        name = det['class_name'].replace('_', ' ').title()
+                        conf = det['confidence']
+                        ingredients_list.append(f"• {name} ({conf:.0%})")
+
+                    conf_text = "\n".join(ingredients_list)
 
                 self.result_label.configure(text=result_text, fg=color)
                 self.confidence_label.configure(text=conf_text, fg=color)

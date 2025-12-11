@@ -5,6 +5,7 @@ Modern landing page with mode selection (IRIS-style)
 
 import tkinter as tk
 from tkinter import ttk
+import sys
 from .widgets import ModernButton, ScrollableFrame
 from config.settings import (
     COLOR_PRIMARY, COLOR_SECONDARY, COLOR_SUCCESS, COLOR_INFO, COLOR_PURPLE,
@@ -211,7 +212,8 @@ class HomeScreen(ttk.Frame):
             )
 
             # Launch the standalone detector (blocking call)
-            result = subprocess.run(["python", str(script_path)], check=True)
+            # Use the same Python interpreter that's running this script
+            result = subprocess.run([sys.executable, str(script_path)], check=True)
 
             # After it closes, look for the most recent order file
             orders_dir = Path(__file__).parent.parent / "pizza_orders"

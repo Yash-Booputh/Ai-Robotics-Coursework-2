@@ -152,6 +152,112 @@ class VisionSystem:
             self.logger.error(f"Error reading frame: {e}")
             return None
 
+    def detect_ingredient_fast(self, frame: np.ndarray) -> Tuple[np.ndarray, Optional[dict]]:
+        """
+        Fast detection for live camera - uses smaller image size and fewer detections
+
+        Args:
+            frame: Input image frame
+
+        Returns:
+            Tuple of (annotated_frame, detection_dict)
+        """
+        if not self.is_model_loaded or self.model is None:
+            annotated_frame = frame.copy()
+            cv2.putText(annotated_frame, "SIMULATION MODE", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            return annotated_frame, None
+
+        try:
+            # Run YOLO with faster settings
+            results = self.model.predict(
+                frame,
+                conf=YOLO_CONFIDENCE_THRESHOLD,
+                imgsz=320,  # Smaller size for speed (was 320 in settings)
+                verbose=False,
+                max_det=10,  # Limit to 10 detections for speed
+                agnostic_nms=True,
+                half=False  # Disable half precision for compatibility
+            )
+
+            annotated_frame = frame.copy()
+            detection = None
+
+            if results and len(results) > 0:
+                result = results[0]
+
+                if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
+                    # Process ALL detections and draw bounding boxes
+                    for box in result.boxes:
+                        confidence = float(box.conf[0])
+                        class_id = int(box.cls[0])
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+                        # Get class name
+                        if hasattr(result, 'names'):
+                            class_name = result.names[class_id]
+                        else:
+                            class_name = self.class_names[class_id] if class_id < len(
+                                self.class_names) else f"Class_{class_id}"
+
+                        # Draw bounding box (thinner for live view)
+                        color = (0, 255, 0)
+
+                        cv2.rectangle(annotated_frame, (x1-1, y1-1), (x2+1, y2+1), (0, 0, 0), 3)
+                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+
+                        # Format class name for display
+                        display_name = class_name.replace('_', ' ').title()
+
+                        # Draw label (smaller for live view)
+                        label = f"{display_name}: {confidence:.0%}"
+                        font_scale = 0.6
+                        font_thickness = 1
+                        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, font_thickness)[0]
+
+                        padding = 6
+                        label_y_pos = y1 - label_size[1] - padding * 2 if y1 - label_size[1] - padding * 2 > 0 else y2 + label_size[1] + padding * 2
+
+                        # Draw label background
+                        cv2.rectangle(annotated_frame,
+                                      (x1 - 1, label_y_pos - label_size[1] - padding - 1),
+                                      (x1 + label_size[0] + padding * 2 + 1, label_y_pos + padding + 1),
+                                      (0, 0, 0), -1)
+                        cv2.rectangle(annotated_frame,
+                                      (x1, label_y_pos - label_size[1] - padding),
+                                      (x1 + label_size[0] + padding * 2, label_y_pos + padding),
+                                      color, -1)
+                        # Draw text
+                        cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                    cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), font_thickness + 1)
+                        cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                    cv2.FONT_HERSHEY_DUPLEX, font_scale, (255, 255, 255), font_thickness)
+
+                    # Store highest confidence detection for UI info
+                    box = result.boxes[0]
+                    confidence = float(box.conf[0])
+                    class_id = int(box.cls[0])
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+                    if hasattr(result, 'names'):
+                        class_name = result.names[class_id]
+                    else:
+                        class_name = self.class_names[class_id] if class_id < len(
+                            self.class_names) else f"Class_{class_id}"
+
+                    detection = {
+                        'class_name': class_name,
+                        'confidence': confidence,
+                        'bbox': [x1, y1, x2, y2],
+                        'class_id': class_id
+                    }
+
+            return annotated_frame, detection
+
+        except Exception as e:
+            self.logger.error(f"Error during detection: {e}")
+            return frame, None
+
     def detect_ingredient(self, frame: np.ndarray) -> Tuple[np.ndarray, Optional[dict]]:
         """
         Detect ingredient in frame using YOLO
@@ -181,7 +287,7 @@ class VisionSystem:
                 conf=YOLO_CONFIDENCE_THRESHOLD,
                 imgsz=YOLO_IMAGE_SIZE,
                 verbose=False,
-                max_det=1,  # Only detect top ingredient
+                max_det=100,  # Allow multiple detections
                 agnostic_nms=True
             )
 
@@ -192,7 +298,57 @@ class VisionSystem:
                 result = results[0]
 
                 if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
-                    # Get highest confidence detection
+                    # Process ALL detections and draw bounding boxes
+                    for box in result.boxes:
+                        confidence = float(box.conf[0])
+                        class_id = int(box.cls[0])
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+                        # Get class name
+                        if hasattr(result, 'names'):
+                            class_name = result.names[class_id]
+                        else:
+                            class_name = self.class_names[class_id] if class_id < len(
+                                self.class_names) else f"Class_{class_id}"
+
+                        # Draw bounding box with thicker lines and shadow for visibility
+                        color = (0, 255, 0)  # Green
+
+                        # Draw shadow (black outline)
+                        cv2.rectangle(annotated_frame, (x1-2, y1-2), (x2+2, y2+2), (0, 0, 0), 5)
+                        # Draw main box
+                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 4)
+
+                        # Format class name for display
+                        display_name = class_name.replace('_', ' ').title()
+
+                        # Draw label with background
+                        label = f"{display_name}: {confidence:.0%}"
+                        font_scale = 0.8
+                        font_thickness = 2
+                        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, font_thickness)[0]
+
+                        # Label background with padding
+                        padding = 8
+                        label_y_pos = y1 - label_size[1] - padding * 2 if y1 - label_size[1] - padding * 2 > 0 else y2 + label_size[1] + padding * 2
+
+                        # Draw label background (black shadow)
+                        cv2.rectangle(annotated_frame,
+                                      (x1 - 2, label_y_pos - label_size[1] - padding - 2),
+                                      (x1 + label_size[0] + padding * 2 + 2, label_y_pos + padding + 2),
+                                      (0, 0, 0), -1)
+                        # Draw label background (colored)
+                        cv2.rectangle(annotated_frame,
+                                      (x1, label_y_pos - label_size[1] - padding),
+                                      (x1 + label_size[0] + padding * 2, label_y_pos + padding),
+                                      color, -1)
+                        # Draw text
+                        cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                    cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), font_thickness + 2)
+                        cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                    cv2.FONT_HERSHEY_DUPLEX, font_scale, (255, 255, 255), font_thickness)
+
+                    # Store highest confidence detection for the UI info panel
                     box = result.boxes[0]
                     confidence = float(box.conf[0])
                     class_id = int(box.cls[0])
@@ -205,7 +361,6 @@ class VisionSystem:
                         class_name = self.class_names[class_id] if class_id < len(
                             self.class_names) else f"Class_{class_id}"
 
-                    # Store detection info
                     detection = {
                         'class_name': class_name,
                         'confidence': confidence,
@@ -213,48 +368,125 @@ class VisionSystem:
                         'class_id': class_id
                     }
 
-                    # Draw bounding box with thicker lines and shadow for visibility
-                    color = (0, 255, 0)  # Green
-
-                    # Draw shadow (black outline)
-                    cv2.rectangle(annotated_frame, (x1-2, y1-2), (x2+2, y2+2), (0, 0, 0), 5)
-                    # Draw main box
-                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 4)
-
-                    # Format class name for display
-                    display_name = class_name.replace('_', ' ').title()
-
-                    # Draw label with background
-                    label = f"{display_name}: {confidence:.0%}"
-                    font_scale = 0.8
-                    font_thickness = 2
-                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, font_thickness)[0]
-
-                    # Label background with padding
-                    padding = 8
-                    label_y_pos = y1 - label_size[1] - padding * 2 if y1 - label_size[1] - padding * 2 > 0 else y2 + label_size[1] + padding * 2
-
-                    # Draw label background (black shadow)
-                    cv2.rectangle(annotated_frame,
-                                  (x1 - 2, label_y_pos - label_size[1] - padding - 2),
-                                  (x1 + label_size[0] + padding * 2 + 2, label_y_pos + padding + 2),
-                                  (0, 0, 0), -1)
-                    # Draw label background (colored)
-                    cv2.rectangle(annotated_frame,
-                                  (x1, label_y_pos - label_size[1] - padding),
-                                  (x1 + label_size[0] + padding * 2, label_y_pos + padding),
-                                  color, -1)
-                    # Draw text
-                    cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
-                                cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), font_thickness + 2)
-                    cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
-                                cv2.FONT_HERSHEY_DUPLEX, font_scale, (255, 255, 255), font_thickness)
-
             return annotated_frame, detection
 
         except Exception as e:
             self.logger.error(f"Error during detection: {e}")
             return frame, None
+
+    def detect_all_ingredients(self, frame: np.ndarray) -> Tuple[np.ndarray, list]:
+        """
+        Detect ALL ingredients in frame using YOLO (for file upload screen)
+
+        Args:
+            frame: Input image frame
+
+        Returns:
+            Tuple of (annotated_frame, list_of_detections)
+            Each detection dict format: {
+                'class_name': str,
+                'confidence': float,
+                'bbox': [x1, y1, x2, y2],
+                'class_id': int
+            }
+        """
+        if not self.is_model_loaded or self.model is None:
+            # Simulation mode - draw fake detection
+            annotated_frame = frame.copy()
+            cv2.putText(annotated_frame, "SIMULATION MODE", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            return annotated_frame, []
+
+        try:
+            # Run YOLO inference with multiple detections
+            # Use very low confidence threshold for file upload to catch all ingredients
+            results = self.model.predict(
+                frame,
+                conf=0.1,  # Very low threshold to detect more objects
+                imgsz=YOLO_IMAGE_SIZE,
+                verbose=False,
+                max_det=100,  # Allow multiple detections
+                agnostic_nms=True,
+                iou=0.7  # Higher IOU threshold to allow more overlapping boxes
+            )
+
+            annotated_frame = frame.copy()
+            detections = []
+
+            if results and len(results) > 0:
+                result = results[0]
+
+                if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
+                    # Process all detections
+                    for box in result.boxes:
+                        confidence = float(box.conf[0])
+                        class_id = int(box.cls[0])
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+                        # Get class name
+                        if hasattr(result, 'names'):
+                            class_name = result.names[class_id]
+                        else:
+                            class_name = self.class_names[class_id] if class_id < len(
+                                self.class_names) else f"Class_{class_id}"
+
+                        # Store detection info
+                        detection = {
+                            'class_name': class_name,
+                            'confidence': confidence,
+                            'bbox': [x1, y1, x2, y2],
+                            'class_id': class_id
+                        }
+                        detections.append(detection)
+
+                        # Draw bounding box with appropriate thickness for file upload
+                        color = (0, 255, 0)  # Green
+
+                        # Calculate line thickness based on image size
+                        img_size = max(annotated_frame.shape[0], annotated_frame.shape[1])
+                        line_thickness = max(5, int(img_size * 0.004))  # Moderate thickness
+                        shadow_thickness = line_thickness + 2
+
+                        # Draw shadow (black outline)
+                        cv2.rectangle(annotated_frame, (x1-2, y1-2), (x2+2, y2+2), (0, 0, 0), shadow_thickness)
+                        # Draw main box
+                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, line_thickness)
+
+                        # Format class name for display
+                        display_name = class_name.replace('_', ' ').title()
+
+                        # Draw label with background - balanced size for readability
+                        label = f"{display_name}: {confidence:.0%}"
+                        # Scale font size with image - more moderate
+                        font_scale = max(0.7, img_size / 1400)  # Smaller, more reasonable font
+                        font_thickness = max(2, int(img_size * 0.0025))  # Moderate thickness
+                        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_DUPLEX, font_scale, font_thickness)[0]
+
+                        # Label background with padding
+                        padding = max(8, int(img_size * 0.008))  # Moderate padding
+                        label_y_pos = y1 - label_size[1] - padding * 2 if y1 - label_size[1] - padding * 2 > 20 else y2 + label_size[1] + padding * 2
+
+                        # Draw label background (black shadow)
+                        cv2.rectangle(annotated_frame,
+                                      (x1 - 2, label_y_pos - label_size[1] - padding - 2),
+                                      (x1 + label_size[0] + padding * 2 + 2, label_y_pos + padding + 2),
+                                      (0, 0, 0), -1)
+                        # Draw label background (colored)
+                        cv2.rectangle(annotated_frame,
+                                      (x1, label_y_pos - label_size[1] - padding),
+                                      (x1 + label_size[0] + padding * 2, label_y_pos + padding),
+                                      color, -1)
+                        # Draw text with shadow for better visibility
+                        cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                    cv2.FONT_HERSHEY_DUPLEX, font_scale, (0, 0, 0), font_thickness + 2)
+                        cv2.putText(annotated_frame, label, (x1 + padding, label_y_pos),
+                                    cv2.FONT_HERSHEY_DUPLEX, font_scale, (255, 255, 255), font_thickness)
+
+            return annotated_frame, detections
+
+        except Exception as e:
+            self.logger.error(f"Error during detection: {e}")
+            return frame, []
 
     def capture_and_detect(self) -> Tuple[Optional[np.ndarray], Optional[dict]]:
         """

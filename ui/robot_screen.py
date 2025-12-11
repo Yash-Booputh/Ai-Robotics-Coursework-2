@@ -415,10 +415,22 @@ class RobotScreen(ttk.Frame):
                     self.add_log("Chef Surprise cleared from menu")
 
                 messagebox.showinfo("Success", f"{self.pizza_name} is ready!")
+                # Return to home after successful completion
+                self.after(1000, self.go_home)
             else:
-                self.add_log("Order failed - could not find all ingredients")
-                self.status_label.configure(text="Failed", fg=COLOR_DANGER)
-                messagebox.showerror("Order Failed", "Could not find all ingredients!\n\nSome ingredients may be missing or out of view.")
+                self.add_log("Order failed or stopped")
+                # Check if it was stopped by user
+                if hasattr(self.controller, 'patrol_system') and self.controller.patrol_system:
+                    if self.controller.patrol_system.stop_requested:
+                        self.status_label.configure(text="Stopped", fg=COLOR_WARNING)
+                        # Return to home after stop
+                        self.after(500, self.go_home)
+                    else:
+                        self.status_label.configure(text="Failed", fg=COLOR_DANGER)
+                        messagebox.showerror("Order Failed", "Could not find all ingredients!\n\nSome ingredients may be missing or out of view.")
+                else:
+                    self.status_label.configure(text="Failed", fg=COLOR_DANGER)
+                    messagebox.showerror("Order Failed", "Could not find all ingredients!\n\nSome ingredients may be missing or out of view.")
 
         except Exception as e:
             self.add_log(f"Error: {str(e)}")
@@ -499,13 +511,11 @@ class RobotScreen(ttk.Frame):
 
         while self.camera_active:
             try:
-                # Try to get frame from controller's pick_sequence patrol_system
-                if (hasattr(self.controller, 'pick_sequence') and
-                    self.controller.pick_sequence and
-                    hasattr(self.controller.pick_sequence, 'patrol_system') and
-                    self.controller.pick_sequence.patrol_system):
+                # Try to get frame from controller's patrol_system
+                if (hasattr(self.controller, 'patrol_system') and
+                    self.controller.patrol_system):
 
-                    patrol_system = self.controller.pick_sequence.patrol_system
+                    patrol_system = self.controller.patrol_system
 
                     # Access IntegratedPatrolGrabSystem's camera directly
                     if hasattr(patrol_system, 'cap') and patrol_system.cap:
@@ -569,6 +579,10 @@ class RobotScreen(ttk.Frame):
         self.controller.stop_pick_sequence()
         self.status_label.configure(text="Stopped", fg=COLOR_WARNING)
         self.stop_btn.configure(state=tk.DISABLED)
+
+        # Stop camera and return to home after a short delay
+        self.stop_camera()
+        self.after(1000, self.go_home)
 
     def add_log(self, message):
         """

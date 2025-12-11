@@ -45,7 +45,7 @@ LOG_FILE = os.path.join(LOG_DIR, "chefmate.log")
 # CAMERA SETTINGS
 # ============================================================================
 
-CAMERA_ID = 0
+CAMERA_ID = 2
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 CAMERA_FPS = 30

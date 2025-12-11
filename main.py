@@ -504,7 +504,8 @@ class ChefMateApp(tk.Tk):
         """Stop the current pick sequence"""
         if self.patrol_system:
             self.logger.warning("Emergency stop requested")
-            self.patrol_system.move_to_home()
+            # Set stop flag to abort the execution loop
+            self.patrol_system.stop_requested = True
 
     # =========================================================================
     # CAMERA AND DETECTION
@@ -552,6 +553,18 @@ class ChefMateApp(tk.Tk):
             Tuple of (annotated_image, detection)
         """
         return self.vision.detect_ingredient(image)
+
+    def detect_all_in_image(self, image):
+        """
+        Run detection on a static image and return ALL detections
+
+        Args:
+            image: Image as numpy array
+
+        Returns:
+            Tuple of (annotated_image, list_of_detections)
+        """
+        return self.vision.detect_all_ingredients(image)
 
     # =========================================================================
     # APPLICATION LIFECYCLE
