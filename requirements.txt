@@ -8,13 +8,19 @@ torch>=2.0.0
 torchvision>=0.15.0
 numpy>=1.24.0
 Pillow>=10.0.0
+onnxruntime>=1.23.0
 
 # GUI
 # tkinter comes with Python, no need to install
+pygame>=2.6.0
+
+# AprilTag Detection
+pyapriltags>=3.4.0
 
 # Robot Control
 # Note: Arm_Lib should be installed separately from Yahboom
 # pip install Arm_Lib (or from provided package)
+smbus>=1.1
 
 # Utilities
 python-dateutil>=2.8.0

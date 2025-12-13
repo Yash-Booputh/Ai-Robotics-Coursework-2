@@ -12,9 +12,9 @@ import time
 
 from .widgets import ModernButton
 from config.settings import (
-    COLOR_PRIMARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_INFO,
+    COLOR_PRIMARY, COLOR_SECONDARY, COLOR_SUCCESS, COLOR_DANGER, COLOR_INFO,
     COLOR_BG_DARK, COLOR_BG_LIGHT, COLOR_BG_MEDIUM, COLOR_TEXT_DARK, COLOR_TEXT_GRAY,
-    FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
+    COLOR_TEXT_LIGHT, FONT_FAMILY, FONT_SIZE_HEADER, FONT_SIZE_LARGE, FONT_SIZE_NORMAL
 )
 
 
@@ -38,8 +38,14 @@ class LiveCameraScreen(ttk.Frame):
 
         self.camera_active = False
         self.camera_thread = None
-        self.detection_history = []
-        self.max_history = 10
+
+        # Latest frame data (thread-safe access)
+        self.latest_frame = None
+        self.frame_lock = threading.Lock()
+
+        # Captured image for detection
+        self.captured_frame = None
+        self.detection_result = None
 
         self.create_widgets()
 
@@ -68,7 +74,7 @@ class LiveCameraScreen(ttk.Frame):
         paned.pack(fill=tk.BOTH, expand=True)
 
         # LEFT panel - LARGE Camera display (70% of space)
-        left_panel = tk.Frame(paned, bg='#1a1a1a')
+        left_panel = tk.Frame(paned, bg=COLOR_TEXT_GRAY)
         paned.add(left_panel, minsize=500, stretch="always")
 
         # Camera display
@@ -76,8 +82,8 @@ class LiveCameraScreen(ttk.Frame):
             left_panel,
             text="Camera Feed\n\nClick 'Start Camera' to begin",
             font=(FONT_FAMILY, 14),
-            bg='#1a1a1a',
-            fg='white'
+            bg=COLOR_TEXT_GRAY,
+            fg=COLOR_TEXT_LIGHT
         )
         self.camera_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -107,6 +113,15 @@ class LiveCameraScreen(ttk.Frame):
         )
         self.start_btn.pack(pady=3, fill=tk.X)
 
+        self.capture_btn = ModernButton(
+            camera_controls,
+            text="CAPTURE & DETECT",
+            command=self.capture_and_detect,
+            bg=COLOR_INFO
+        )
+        self.capture_btn.pack(pady=3, fill=tk.X)
+        self.capture_btn.config(state=tk.DISABLED)
+
         self.stop_btn = ModernButton(
             camera_controls,
             text="STOP CAMERA",
@@ -129,14 +144,14 @@ class LiveCameraScreen(ttk.Frame):
         ).pack(pady=(10, 5))
 
         # Current detection frame
-        current_frame = tk.Frame(right_panel, bg='#e8f5e9', relief=tk.SUNKEN, borderwidth=2)
+        current_frame = tk.Frame(right_panel, bg=COLOR_BG_MEDIUM, relief=tk.SUNKEN, borderwidth=2)
         current_frame.pack(fill=tk.X, padx=15, pady=8)
 
         tk.Label(
             current_frame,
             text="Current Detection",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL, 'bold'),
-            bg='#e8f5e9',
+            bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_DARK
         ).pack(pady=(8, 3))
 
@@ -144,7 +159,7 @@ class LiveCameraScreen(ttk.Frame):
             current_frame,
             text="No detection",
             font=(FONT_FAMILY, FONT_SIZE_LARGE, 'bold'),
-            bg='#e8f5e9',
+            bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_GRAY
         )
         self.current_detection_label.pack(pady=(3, 5))
@@ -153,13 +168,13 @@ class LiveCameraScreen(ttk.Frame):
             current_frame,
             text="",
             font=(FONT_FAMILY, FONT_SIZE_NORMAL),
-            bg='#e8f5e9',
+            bg=COLOR_BG_MEDIUM,
             fg=COLOR_TEXT_GRAY
         )
         self.confidence_label.pack(pady=(0, 8))
 
-        # Model Status (NEW - shows if YOLO is loaded)
-        model_status_frame = tk.Frame(right_panel, bg='#e3f2fd', relief=tk.SUNKEN, borderwidth=1)
+        # Model Status 
+        model_status_frame = tk.Frame(right_panel, bg=COLOR_BG_LIGHT, relief=tk.SUNKEN, borderwidth=1)
         model_status_frame.pack(fill=tk.X, padx=15, pady=8)
 
         model_loaded = self.controller.vision.is_model_loaded
@@ -170,7 +185,7 @@ class LiveCameraScreen(ttk.Frame):
             model_status_frame,
             text=model_text,
             font=(FONT_FAMILY, 9, 'bold'),
-            bg='#e3f2fd',
+            bg=COLOR_BG_LIGHT,
             fg=model_color
         )
         self.model_status_label.pack(pady=5)
@@ -214,7 +229,7 @@ class LiveCameraScreen(ttk.Frame):
 
         self.history_listbox = tk.Listbox(
             history_frame,
-            bg='#fafafa',
+            bg=COLOR_BG_LIGHT,
             fg=COLOR_TEXT_DARK,
             font=(FONT_FAMILY, 9),
             yscrollcommand=history_scrollbar.set,
@@ -228,7 +243,7 @@ class LiveCameraScreen(ttk.Frame):
         # Info text
         info_text = tk.Label(
             right_panel,
-            text="Position ingredients in view\nof the camera for detection",
+            text="1. Start Camera\n2. Position ingredients\n3. Click Capture & Detect",
             font=(FONT_FAMILY, 9),
             bg=COLOR_BG_LIGHT,
             fg=COLOR_TEXT_GRAY,
@@ -237,7 +252,7 @@ class LiveCameraScreen(ttk.Frame):
         info_text.pack(pady=(5, 10))
 
     def start_camera(self):
-        """Start camera and detection"""
+        """Start camera feed"""
         if self.camera_active:
             return
 
@@ -251,26 +266,103 @@ class LiveCameraScreen(ttk.Frame):
 
             self.camera_active = True
             self.start_btn.config(state=tk.DISABLED)
+            self.capture_btn.config(state=tk.NORMAL)
             self.stop_btn.config(state=tk.NORMAL)
             self.status_label.configure(text="● Camera Active", fg=COLOR_SUCCESS)
 
-            # Start camera loop
+            # Clear any previous detection
+            self.captured_frame = None
+            self.detection_result = None
+
+            # Start camera feed thread
             self.camera_thread = threading.Thread(target=self.camera_loop, daemon=True)
             self.camera_thread.start()
+
+            # Start display update loop
+            self.display_loop()
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to start camera:\n{str(e)}")
 
+    def capture_and_detect(self):
+        """Capture current frame and run detection"""
+        if not self.camera_active:
+            return
+
+        try:
+            # Get current frame
+            with self.frame_lock:
+                frame = self.latest_frame
+
+            if frame is None:
+                messagebox.showwarning("No Frame", "No camera frame available")
+                return
+
+            # Disable capture button while processing
+            self.capture_btn.config(state=tk.DISABLED)
+            self.status_label.configure(text="● Processing...", fg=COLOR_INFO)
+
+            # Run detection on captured frame (in separate thread to not freeze UI)
+            def detect_thread():
+                try:
+                    # Run detection with all ingredients
+                    annotated_frame, detections = self.controller.vision.detect_all_ingredients(frame)
+
+                    # Store results
+                    self.captured_frame = annotated_frame
+                    self.detection_result = detections
+
+                    # Update UI in main thread
+                    self.after(0, self.update_detection_results)
+
+                except Exception as e:
+                    self.after(0, lambda: messagebox.showerror("Detection Error", f"Failed to detect:\n{str(e)}"))
+                    self.after(0, lambda: self.capture_btn.config(state=tk.NORMAL))
+                    self.after(0, lambda: self.status_label.configure(text="● Camera Active", fg=COLOR_SUCCESS))
+
+            threading.Thread(target=detect_thread, daemon=True).start()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to capture:\n{str(e)}")
+            self.capture_btn.config(state=tk.NORMAL)
+
+    def update_detection_results(self):
+        """Update UI with detection results"""
+        self.capture_btn.config(state=tk.NORMAL)
+        self.status_label.configure(text="● Detection Complete", fg=COLOR_SUCCESS)
+
+        if self.detection_result and len(self.detection_result) > 0:
+            # Update detection info with first detection
+            self.update_detection(self.detection_result[0])
+
+            # Add all detections to history
+            timestamp = time.strftime("%H:%M:%S")
+            for det in self.detection_result:
+                class_name = det['class_name']
+                confidence = det['confidence']
+                history_entry = f"[{timestamp}] {class_name} - {confidence:.1%}"
+                self.history_listbox.insert(0, history_entry)
+
+            # Limit history
+            while self.history_listbox.size() > 20:
+                self.history_listbox.delete(tk.END)
+
     def stop_camera(self):
-        """Stop camera"""
+        """Stop camera display and release the VisionSystem camera"""
+        # Signal thread to stop
         self.camera_active = False
 
-        if self.camera_thread:
-            self.camera_thread.join(timeout=1.0)
+        # Wait for camera thread to stop
+        if self.camera_thread and self.camera_thread.is_alive():
+            self.camera_thread.join(timeout=2.0)
+            self.camera_thread = None
 
+        # Stop the shared VisionSystem camera
         self.controller.stop_vision_camera()
 
+        # Update UI state
         self.start_btn.config(state=tk.NORMAL)
+        self.capture_btn.config(state=tk.DISABLED)
         self.stop_btn.config(state=tk.DISABLED)
         self.status_label.configure(text="● Camera Off", fg=COLOR_TEXT_GRAY)
 
@@ -279,41 +371,66 @@ class LiveCameraScreen(ttk.Frame):
             image="",
             text="Camera Off\n\nClick 'Start Camera' to begin"
         )
+        self.camera_label.image = None
         self.current_detection_label.configure(text="No detection", fg=COLOR_TEXT_GRAY)
         self.confidence_label.configure(text="")
         self.fps_label.configure(text="FPS: 0")
 
     def camera_loop(self):
-        """Main camera loop"""
+        """Simple camera loop - just capture frames"""
         while self.camera_active:
             try:
-                # Get frame with detection
-                frame, detection = self.controller.get_camera_frame()
+                # Read frame from camera
+                frame = self.controller.vision.read_frame()
 
                 if frame is not None:
-                    # Convert to PhotoImage
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    with self.frame_lock:
+                        self.latest_frame = frame
+
+            except Exception as e:
+                print(f"Camera loop error: {e}")
+                time.sleep(0.1)
+
+    def display_loop(self):
+        """Update UI with camera feed or captured result"""
+        def update_ui():
+            if not self.camera_active:
+                return
+
+            try:
+                # If we have a captured frame with detection, show that
+                # Otherwise show live camera feed
+                if self.captured_frame is not None:
+                    display_frame = self.captured_frame
+                else:
+                    with self.frame_lock:
+                        display_frame = self.latest_frame
+
+                if display_frame is not None:
+                    # Convert to RGB and display at higher resolution
+                    frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
                     img = Image.fromarray(frame_rgb)
-                    img = img.resize((640, 480), Image.Resampling.LANCZOS)
+                    # Display at full camera resolution (no resize needed if already 640x480)
+                    # or scale up if needed for better quality
                     photo = ImageTk.PhotoImage(img)
 
                     # Update camera label
                     self.camera_label.configure(image=photo, text="")
                     self.camera_label.image = photo
 
-                    # Update detection info
-                    if detection:
-                        self.update_detection(detection)
-
                     # Update FPS
                     fps = self.controller.get_camera_fps()
                     self.fps_label.configure(text=f"FPS: {fps:.1f}")
 
-                time.sleep(0.03)  # ~30 FPS
-
             except Exception as e:
-                print(f"Camera loop error: {e}")
-                time.sleep(0.1)
+                print(f"Display loop error: {e}")
+
+            # Schedule next update - 30ms for ~33 FPS
+            if self.camera_active:
+                self.after(30, update_ui)
+
+        # Start the update loop
+        update_ui()
 
     def update_detection(self, detection):
         """
@@ -337,25 +454,12 @@ class LiveCameraScreen(ttk.Frame):
             conf_color = COLOR_SUCCESS
         elif confidence >= 0.6:
             conf_text = f"Confidence: {confidence:.1%} (Good)"
-            conf_color = "#F39C12"
+            conf_color = COLOR_SECONDARY
         else:
             conf_text = f"Confidence: {confidence:.1%} (Low)"
-            conf_color = "#E74C3C"
+            conf_color = COLOR_DANGER
 
         self.confidence_label.configure(text=conf_text, fg=conf_color)
-
-        # Add to history
-        timestamp = time.strftime("%H:%M:%S")
-        history_entry = f"[{timestamp}] {class_name} - {confidence:.1%}"
-
-        self.detection_history.append(history_entry)
-        if len(self.detection_history) > self.max_history:
-            self.detection_history.pop(0)
-
-        # Update history listbox
-        self.history_listbox.delete(0, tk.END)
-        for entry in reversed(self.detection_history):
-            self.history_listbox.insert(tk.END, entry)
 
     def on_show(self):
         """Called when screen is shown"""
@@ -363,4 +467,6 @@ class LiveCameraScreen(ttk.Frame):
 
     def on_hide(self):
         """Called when screen is hidden"""
-        self.stop_camera()
+        # Stop the camera when leaving the screen
+        if self.camera_active:
+            self.stop_camera()

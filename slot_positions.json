@@ -1,68 +1,68 @@
 {
     "slot_1": {
         "angles": {
-            "servo_1": 111,
-            "servo_2": 67,
-            "servo_3": 98,
-            "servo_4": 6,
+            "servo_1": 112,
+            "servo_2": 105,
+            "servo_3": 18,
+            "servo_4": 52,
             "servo_5": 89,
-            "servo_6": 71
+            "servo_6": 0
         },
-        "timestamp": "2025-12-08 12:54:27"
+        "timestamp": "2025-12-11 12:49:09"
     },
     "slot_2": {
         "angles": {
-            "servo_1": 93,
-            "servo_2": 67,
-            "servo_3": 98,
-            "servo_4": 6,
+            "servo_1": 92,
+            "servo_2": 101,
+            "servo_3": 6,
+            "servo_4": 74,
             "servo_5": 89,
-            "servo_6": 65
+            "servo_6": 0
         },
-        "timestamp": "2025-12-08 12:54:40"
+        "timestamp": "2025-12-11 12:44:47"
     },
     "slot_3": {
         "angles": {
-            "servo_1": 69,
-            "servo_2": 63,
-            "servo_3": 104,
-            "servo_4": 1,
+            "servo_1": 72,
+            "servo_2": 101,
+            "servo_3": 6,
+            "servo_4": 74,
             "servo_5": 89,
-            "servo_6": 56
+            "servo_6": 0
         },
-        "timestamp": "2025-12-04 13:24:21"
+        "timestamp": "2025-12-11 12:45:08"
     },
     "slot_4": {
         "angles": {
-            "servo_1": 109,
-            "servo_2": 81,
-            "servo_3": 20,
-            "servo_4": 54,
-            "servo_5": 91,
-            "servo_6": 56
+            "servo_1": 110,
+            "servo_2": 103,
+            "servo_3": 0,
+            "servo_4": 42,
+            "servo_5": 89,
+            "servo_6": 0
         },
-        "timestamp": "2025-12-04 13:26:15"
+        "timestamp": "2025-12-11 12:46:04"
     },
     "slot_5": {
         "angles": {
-            "servo_1": 91,
-            "servo_2": 103,
-            "servo_3": 8,
-            "servo_4": 46,
-            "servo_5": 91,
-            "servo_6": 56
+            "servo_1": 92,
+            "servo_2": 99,
+            "servo_3": 0,
+            "servo_4": 42,
+            "servo_5": 89,
+            "servo_6": 0
         },
-        "timestamp": "2025-12-04 13:26:54"
+        "timestamp": "2025-12-11 12:46:21"
     },
     "slot_6": {
         "angles": {
-            "servo_1": 75,
-            "servo_2": 73,
-            "servo_3": 40,
-            "servo_4": 38,
-            "servo_5": 91,
-            "servo_6": 56
+            "servo_1": 72,
+            "servo_2": 101,
+            "servo_3": 0,
+            "servo_4": 42,
+            "servo_5": 89,
+            "servo_6": 0
         },
-        "timestamp": "2025-12-04 13:27:33"
+        "timestamp": "2025-12-11 12:46:32"
     }
 }

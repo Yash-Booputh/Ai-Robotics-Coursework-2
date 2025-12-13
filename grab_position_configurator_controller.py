@@ -9,11 +9,13 @@ WORKFLOW FOR EACH SLOT:
 1. Press F1-F6 to select slot
 2. Configure WAYPOINT 1 (Safe Level Position - outside shelf, at cube height)
    - Use controller/keyboard to position arm
-   - Press CROSS/A button (or '1' key) to save WP1
+   - Press '1' key to save WP1 (auto-saves to JSON immediately)
 3. Configure WAYPOINT 2 (Grab Position - inside shelf, at cube)
    - Use controller/keyboard to position arm
-   - Press TRIANGLE/Y button (or '2' key) to save WP2
-4. Press START (or SPACE) to save complete sequence
+   - Press '2' key to save WP2 (auto-saves to JSON immediately)
+4. Configure WAYPOINT 3 (Delivery Position - where to drop the cube)
+   - Use controller/keyboard to position arm
+   - Press '3' key to save WP3 (auto-saves to JSON immediately)
 
 CONTROLLER MAPPING (PlayStation/Xbox style):
 - Left Joystick: Servo 1 (horizontal) & Servo 2 (vertical) - Base & Shoulder
@@ -22,27 +24,27 @@ CONTROLLER MAPPING (PlayStation/Xbox style):
 - L2 (Button 6): Servo 3 increase (Elbow)
 - R1 (Button 5): Servo 4 decrease (Wrist pitch)
 - R2 (Button 7): Servo 4 increase (Wrist pitch)
-- CROSS/A (Button 0): Save Waypoint 1 (Safe Level)
-- TRIANGLE/Y (Button 2): Save Waypoint 2 (Grab Position)
+- Circle (Button 1): Servo 5 decrease (Gripper Rotation)
+- Square (Button 3): Servo 5 increase (Gripper Rotation)
 - SELECT (Button 8): Reset all servos to 90°
-- START (Button 9): Save complete grab sequence
-- Circle (Button 1): Decrease speed
-- Square (Button 3): Increase speed
 
-KEYBOARD CONTROLS (still available):
+KEYBOARD CONTROLS:
 - W/S/A/D/I/K/J/L/U/O/P/;: Move servos (U/O = GRIPPER ROTATION)
 - F1-F6: Go to slot 1-6 position
-- 1: Save Waypoint 1 (Safe Level Position)
-- 2: Save Waypoint 2 (Grab Position)
-- SPACE: Save complete grab sequence
+- 1: Save Waypoint 1 (Safe Level Position) - auto-saves immediately
+- 2: Save Waypoint 2 (Grab Position) - auto-saves immediately
+- 3: Save Waypoint 3 (Delivery Position) - auto-saves immediately
 - +/-: Step size
 - [/]: Speed
+- T: Toggle detection
 - Q: Quit
 
 IMPORTANT:
 - Waypoint 1: Position arm OUTSIDE the shelf, at the SAME HEIGHT as the cube
 - Waypoint 2: The actual grab position (endpoint) INSIDE the shelf, around the cube
-- The robot will move horizontally from WP1 to WP2 (minimal movement)
+- Waypoint 3: Delivery position where the robot will drop the cube
+- Each waypoint auto-saves to JSON immediately when you press 1, 2, or 3
+- The robot will: WP1 -> WP2 (grab & close gripper) -> WP3 (open gripper to drop cube)
 
 INSTALLATION:
 pip install pygame
@@ -82,8 +84,8 @@ NUM_SERVOS = 6
 # Movement configurations
 ANGLE_STEP = 2
 MOVE_SPEEDS = {
-    'slow': 500,
-    'normal': 300,
+    'slow': 900,
+    'normal': 500,
     'fast': 150,
     'instant': 50
 }
@@ -127,7 +129,7 @@ class GrabConfigurator:
                     self.joystick = pygame.joystick.Joystick(0)
                     self.joystick.init()
                     self.controller_enabled = True
-                    print(f"✓ Controller connected: {self.joystick.get_name()}")
+                    print(f" Controller connected: {self.joystick.get_name()}")
                     print(f"  Axes: {self.joystick.get_numaxes()}")
                     print(f"  Buttons: {self.joystick.get_numbuttons()}")
                 else:
@@ -173,10 +175,11 @@ class GrabConfigurator:
         # Current slot being programmed
         self.current_slot = 1
 
-        # Waypoint system (like V2)
+        # Waypoint system (all 3 waypoints manually configured)
         self.waypoints = {
             1: None,  # Safe Level Position (outside shelf, at cube height)
-            2: None   # Grab Position (inside shelf, at cube endpoint)
+            2: None,  # Grab Position (inside shelf, at cube endpoint)
+            3: None   # Delivery Position (where to drop the cube)
         }
 
         # FPS tracking
@@ -197,7 +200,7 @@ class GrabConfigurator:
             print("  Please run slot_position_configurator.py first.")
             exit(1)
 
-        print(f"✓ Loaded {len(self.slot_positions)} slot positions")
+        print(f" Loaded {len(self.slot_positions)} slot positions")
 
         # Use grab_positions.json for waypoint support
         global GRAB_POSITIONS_FILE
@@ -221,7 +224,7 @@ class GrabConfigurator:
                 self.input_name = self.model.get_inputs()[0].name
                 self.input_shape = self.model.get_inputs()[0].shape
                 self.model_loaded = True
-                print(f"✓✓✓ MODEL LOADED! ✓✓✓")
+                print(f" MODEL LOADED! ")
             except Exception as e:
                 print(f"✗ Failed to load model: {e}")
         else:
@@ -269,7 +272,7 @@ class GrabConfigurator:
         try:
             with open(GRAB_POSITIONS_FILE, 'w') as f:
                 json.dump(self.grab_positions, f, indent=4)
-            print(f"\n✓ Grab positions saved to {GRAB_POSITIONS_FILE}")
+            print(f"\n Grab positions saved to {GRAB_POSITIONS_FILE}")
             return True
         except Exception as e:
             print(f"\n✗ Error saving grab positions: {e}")
@@ -280,9 +283,9 @@ class GrabConfigurator:
         return {f"servo_{i}": self.current_angles[i] for i in range(1, NUM_SERVOS + 1)}
 
     def save_waypoint(self, waypoint_num):
-        """Save current position as waypoint"""
-        if waypoint_num not in [1, 2]:
-            print(f"✗ Invalid waypoint number: {waypoint_num}")
+        """Save current position as waypoint and auto-save to JSON"""
+        if waypoint_num not in [1, 2, 3]:
+            print(f"✗ Invalid waypoint number: {waypoint_num} (only 1, 2, and 3 allowed)")
             return False
 
         angles = self.get_current_position()
@@ -290,10 +293,11 @@ class GrabConfigurator:
 
         waypoint_names = {
             1: "Safe Level Position (outside shelf)",
-            2: "Grab Position (inside shelf)"
+            2: "Grab Position (inside shelf)",
+            3: "Delivery Position (drop location)"
         }
         print(f"\n" + "="*60)
-        print(f"✓ WAYPOINT {waypoint_num} SAVED!")
+        print(f" WAYPOINT {waypoint_num} SAVED!")
         print(f"  {waypoint_names[waypoint_num]}")
         print("="*60)
 
@@ -309,6 +313,10 @@ class GrabConfigurator:
                 print(f"    Servo {servo_id}: {angle}°")
 
         print("="*60)
+
+        # Auto-save to JSON immediately
+        self.save_waypoint_to_json(self.current_slot)
+
         return True
 
     def move_servo(self, servo_id, angle):
@@ -328,8 +336,27 @@ class GrabConfigurator:
         new_angle = current + delta
         self.move_servo(servo_id, new_angle)
 
+    def load_waypoints_for_slot(self, slot_number):
+        """Load existing waypoints for a slot from JSON"""
+        slot_key = f"slot_{slot_number}"
+
+        if slot_key in self.grab_positions:
+            slot_data = self.grab_positions[slot_key]
+            self.waypoints[1] = slot_data.get('waypoint_1_safe_level')
+            self.waypoints[2] = slot_data.get('waypoint_2_grab')
+            self.waypoints[3] = slot_data.get('waypoint_3_delivery')
+
+            print(f"\n Loaded existing waypoints for Slot {slot_number}:")
+            print(f"  WP1: {' Configured' if self.waypoints[1] else '✗ Not configured'}")
+            print(f"  WP2: {' Configured' if self.waypoints[2] else '✗ Not configured'}")
+            print(f"  WP3: {' Configured' if self.waypoints[3] else '✗ Not configured'}")
+        else:
+            # No existing data, reset waypoints
+            self.waypoints = {1: None, 2: None, 3: None}
+            print(f"\n No existing waypoints for Slot {slot_number}")
+
     def move_to_slot(self, slot_number):
-        """Move to a slot position"""
+        """Move to a slot position and load existing waypoints"""
         slot_key = f"slot_{slot_number}"
 
         if slot_key not in self.slot_positions:
@@ -348,7 +375,11 @@ class GrabConfigurator:
             time.sleep(0.05)
 
         time.sleep(0.5)
-        print(f"✓ Arrived at Slot {slot_number}")
+        print(f" Arrived at Slot {slot_number}")
+
+        # Load existing waypoints for this slot
+        self.load_waypoints_for_slot(slot_number)
+
         print("Now use controller/keyboard to fine-tune the grab position!")
         print("IMPORTANT: Use right stick vertical / U/O for SERVO 5 (gripper rotation)")
 
@@ -512,11 +543,11 @@ class GrabConfigurator:
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, slot_color, 2)
         y_offset += 22
 
-        # Waypoint status
-        for wp_num in [1, 2]:
-            status = "✓" if self.waypoints[wp_num] else "✗"
+        # Waypoint status (show all 3 waypoints)
+        for wp_num in [1, 2, 3]:
+            status = "" if self.waypoints[wp_num] else "✗"
             color = (0, 255, 0) if self.waypoints[wp_num] else (0, 0, 255)
-            wp_names = {1: "WP1", 2: "WP2"}
+            wp_names = {1: "WP1", 2: "WP2", 3: "WP3"}
             text = f"{wp_names[wp_num]}:{status}"
             cv2.putText(frame, text, (right_x, y_offset),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
@@ -572,13 +603,13 @@ class GrabConfigurator:
         if self.controller_enabled:
             instructions.extend([
                 "L-Stick:S1/S2 R-Stick:S5(ROT)/S6",
-                "CROSS:WP1 TRIANGLE:WP2 START:Save",
-                "L1/L2:S3 R1/R2:S4"
+                "Keyboard: 1:WP1 2:WP2 3:WP3",
+                "L1/L2:S3 R1/R2:S4 Circ/Sq:S5"
             ])
         else:
             instructions.extend([
-                "F1-F6:Slot | 1:WP1 2:WP2",
-                "U/O:S5(GRIP-ROT) | SPACE:Save | Q:Quit"
+                "F1-F6:Slot | 1:WP1 2:WP2 3:WP3",
+                "U/O:S5(GRIP-ROT) | Q:Quit"
             ])
 
         y_offset = h - 55
@@ -589,49 +620,43 @@ class GrabConfigurator:
 
         return frame
 
-    def save_grab_position(self, slot_number):
-        """Save complete grab sequence with waypoints for a specific slot"""
-        print(f"\nSaving grab sequence for Slot {slot_number}...")
-
-        # Check all waypoints are configured
-        missing = [i for i in [1, 2] if self.waypoints[i] is None]
-        if missing:
-            print(f"\n✗ Missing waypoints: {missing}")
-            print("  Configure waypoints 1 and 2 before saving")
-            if 1 in missing:
-                print("  Press '1' to save Waypoint 1: Safe Level Position (outside shelf, at cube height)")
-            if 2 in missing:
-                print("  Press '2' to save Waypoint 2: Grab Position (inside shelf, at cube)")
-            return False
-
+    def save_waypoint_to_json(self, slot_number):
+        """Save current waypoint configuration to JSON (partial save allowed)"""
         slot_key = f"slot_{slot_number}"
-        self.grab_positions[slot_key] = {
-            "slot_number": slot_number,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "waypoint_1_safe_level": self.waypoints[1],
-            "waypoint_2_grab": self.waypoints[2]
-        }
 
+        # Get existing slot data or create new
+        if slot_key not in self.grab_positions:
+            self.grab_positions[slot_key] = {
+                "slot_number": slot_number,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "waypoint_1_safe_level": None,
+                "waypoint_2_grab": None,
+                "waypoint_3_delivery": None
+            }
+
+        # Update only the configured waypoints
+        if self.waypoints[1] is not None:
+            self.grab_positions[slot_key]["waypoint_1_safe_level"] = self.waypoints[1]
+        if self.waypoints[2] is not None:
+            self.grab_positions[slot_key]["waypoint_2_grab"] = self.waypoints[2]
+        if self.waypoints[3] is not None:
+            self.grab_positions[slot_key]["waypoint_3_delivery"] = self.waypoints[3]
+
+        # Update timestamp
+        self.grab_positions[slot_key]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Save to file
         if self.save_grab_positions():
-            print("\n" + "="*60)
-            print(f"✓✓✓ SLOT {slot_number} GRAB SEQUENCE SAVED! ✓✓✓")
-            print("="*60)
-            print(f"Saved to: {GRAB_POSITIONS_FILE}")
-            print("\nSequence configured:")
-            print("  1. Safe Level Position (outside shelf, at cube height)")
-            print("  2. Grab Position (inside shelf, at cube)")
-            print("\nExecution will:")
-            print("  - Move to WP1 (safe level position)")
-            print("  - Open gripper")
-            print("  - Move to WP2 (grab position)")
-            print("  - Close gripper")
-            print("="*60)
+            print(f" Waypoint saved to {GRAB_POSITIONS_FILE}")
 
-            # Reset waypoints after saving
-            self.waypoints = {1: None, 2: None}
+            # Show status of all waypoints for this slot
+            print(f"\nSlot {slot_number} Status:")
+            print(f"  WP1: {' Configured' if self.waypoints[1] else '✗ Not configured'}")
+            print(f"  WP2: {' Configured' if self.waypoints[2] else '✗ Not configured'}")
+            print(f"  WP3: {' Configured' if self.waypoints[3] else '✗ Not configured'}")
             return True
         else:
-            print("✗ Failed to save!")
+            print("✗ Failed to save to JSON!")
             return False
 
     def is_button_pressed(self, button_id, debounce_time=0.3):
@@ -772,21 +797,15 @@ class GrabConfigurator:
                 self.arm.Arm_serial_servo_write6(90, 90, 90, 90, 90, 90, 1000)
                 time.sleep(1)
 
-            # START button (9) - Save grab position
-            if num_buttons > 9 and self.is_button_pressed(9):
-                self.save_grab_position(self.current_slot)
+            # Button 3 (Square) - Servo 5 increase
+            if num_buttons > 3 and self.joystick.get_button(3):
+                self.adjust_servo(5, s_step)
+                servo_moved = True
 
-            # Waypoint saving buttons (Button 0 = WP1, Button 2 = WP2)
-            if num_buttons > 0 and self.is_button_pressed(0, debounce_time=0.5):  # Cross/A - Save Waypoint 1
-                self.save_waypoint(1)
-            if num_buttons > 2 and self.is_button_pressed(2, debounce_time=0.5):  # Triangle/Y - Save Waypoint 2
-                self.save_waypoint(2)
-
-            # Speed control buttons (Button 1 = decrease, Button 3 = increase)
-            if num_buttons > 1 and self.is_button_pressed(1):  # Button 1 - decrease speed
-                self.change_speed('down')
-            if num_buttons > 3 and self.is_button_pressed(3):  # Button 3 - increase speed
-                self.change_speed('up')
+            # Servo 5 control button (Button 1 = decrease only)
+            if num_buttons > 1 and self.joystick.get_button(1):  # Button 1 (Circle) - Servo 5 decrease
+                self.adjust_servo(5, -s_step)
+                servo_moved = True
 
             # Update the last analog time if any servo was moved
             if servo_moved:
@@ -807,12 +826,9 @@ class GrabConfigurator:
             print("  Right Stick     - Servo 5 (GRIP-ROT) & Servo 6 (Gripper)")
             print("  L1/L2           - Servo 3 (Elbow)")
             print("  R1/R2           - Servo 4 (Wrist pitch)")
-            print("  CROSS/A (B0)    - Save Waypoint 1 (Safe Level)")
-            print("  TRIANGLE/Y (B2) - Save Waypoint 2 (Grab Position)")
+            print("  Circle (B1)     - Servo 5 decrease (Gripper Rotation)")
+            print("  Square (B3)     - Servo 5 increase (Gripper Rotation)")
             print("  SELECT (B8)     - Reset all servos to 90°")
-            print("  START (B9)      - Save complete grab sequence")
-            print("  Circle (B1)     - Decrease speed")
-            print("  Square (B3)     - Increase speed")
         else:
             print("KEYBOARD MODE (Controller not available)")
             print("="*60)
@@ -822,18 +838,19 @@ class GrabConfigurator:
         print("  W/S/A/D/I/K/J/L - Move servos")
         print("  U/O             - Servo 5 (GRIPPER ROTATION) ← IMPORTANT!")
         print("  P/;             - Servo 6 (Gripper open/close)")
-        print("  1               - Save Waypoint 1 (Safe Level)")
-        print("  2               - Save Waypoint 2 (Grab Position)")
-        print("  SPACE           - Save complete grab sequence")
+        print("  1               - Save Waypoint 1 (Safe Level) - auto-saves to JSON")
+        print("  2               - Save Waypoint 2 (Grab Position) - auto-saves to JSON")
+        print("  3               - Save Waypoint 3 (Delivery Position) - auto-saves to JSON")
         print("  +/-             - Step size")
         print("  [ / ]           - Speed")
         print("  T               - Toggle detection")
         print("  Q               - Quit")
         print("\nWORKFLOW:")
         print("  1. Press F1-F6 to select slot")
-        print("  2. Configure Waypoint 1 (outside shelf, at cube height) - press 1 or CROSS/A")
-        print("  3. Configure Waypoint 2 (inside shelf, at cube) - press 2 or TRIANGLE/Y")
-        print("  4. Press SPACE or START to save complete sequence")
+        print("  2. Configure Waypoint 1 (outside shelf, at cube height) - press 1")
+        print("  3. Configure Waypoint 2 (inside shelf, at cube) - press 2")
+        print("  4. Configure Waypoint 3 (delivery position) - press 3")
+        print("  5. Each waypoint auto-saves immediately to JSON")
         print("\nCurrent slot: {}".format(self.current_slot))
         print("="*60)
 
@@ -889,17 +906,17 @@ class GrabConfigurator:
                 # Slot selection (F1-F6)
                 if key >= 190 and key <= 195:
                     self.current_slot = key - 189
-                    # Reset waypoints when switching slots
-                    self.waypoints = {1: None, 2: None}
                     print(f"\n{'='*60}")
                     print(f"Selected Slot {self.current_slot}")
                     self.move_to_slot(self.current_slot)
 
-                # Save waypoints (1 and 2 keys)
+                # Save waypoints (1, 2, and 3 keys - all manually configured)
                 elif key == ord('1'):
                     self.save_waypoint(1)
                 elif key == ord('2'):
                     self.save_waypoint(2)
+                elif key == ord('3'):
+                    self.save_waypoint(3)
 
                 # Servo 1 - Base rotation (W/S)
                 elif key == ord('w') or key == ord('W'):
@@ -955,10 +972,6 @@ class GrabConfigurator:
                         self.detection_enabled = not self.detection_enabled
                         status = "ON" if self.detection_enabled else "OFF"
                         print(f"Object detection: {status}")
-
-                # Save grab position (SPACE)
-                elif key == 32:
-                    self.save_grab_position(self.current_slot)
 
                 # Quit (Q)
                 elif key == ord('q') or key == ord('Q'):
