@@ -173,6 +173,7 @@ robot_sounds/error_1.wav
 
 **IMPORTANT:** Always run the application from within the virtual environment.
 
+**On Linux/Raspberry Pi:**
 ```bash
 # Activate virtual environment (if not already activated)
 source .venv/bin/activate
@@ -181,7 +182,14 @@ source .venv/bin/activate
 .venv/bin/python main.py
 ```
 
+**On Windows:**
+```bash
+# Activate virtual environment (if not already activated)
+.venv\Scripts\activate
 
+# Run the application
+.venv\Scripts\python main.py
+```
 
 **Alternative method (with activated environment):**
 ```bash
@@ -207,6 +215,15 @@ python main.py
    - Progress checklist tracks each ingredient
    - Audio notifications for each step
    - Success/failure status updates
+
+### Known Issue - Switching Between Modes
+
+**IMPORTANT:** If you use the **Order Pizza** option and then want to use the **AprilTag detection** feature, you must close the entire application and restart it. This is a known bug that was not yet resolved. Switching directly between these modes may cause the camera feed to not function properly.
+
+**Workaround:**
+1. Close the application completely
+2. Restart the application
+3. Select the desired mode from the home screen
 
 ### Deactivating Virtual Environment
 When finished, deactivate the virtual environment:
@@ -315,7 +332,7 @@ PIZZA_RECIPES = {
         "ingredients": ["fresh_tomato", "cheese", "basil"],
         "price": "$12.99"
     }
-    # Add more pizzas as needed
+    
 }
 ```
 
@@ -335,20 +352,6 @@ Positions are saved to:
 - `grab_positions.json` - 3-waypoint grab sequences for each slot
 
 ---
-
-## Hardware Setup
-
-### Shelf Layout
-The system uses a 6-slot shelf arranged in 3 rows:
-
-```
-┌─────────────────────────────────┐
-│  [Slot 1]        [Slot 2]       │  Top Row
-│  [Slot 3]        [Slot 4]       │  Middle Row
-│  [Slot 5]        [Slot 6]       │  Bottom Row
-│         [Delivery Area]         │
-└─────────────────────────────────┘
-```
 
 ### Camera Setup
 - Mount camera on robot arm end effector
@@ -476,8 +479,8 @@ tail -f logs/chefmate.log
 
 ## Course Information
 - **Course**: AI in Robotics (PDE 3802)
-- **Institution**: Middlesex University
-- **Submission Date**: December 12, 2025
+- **Institution**: Middlesex University Mauritius
+- **Submission Date**: December 14, 2025
 
 ---
 
