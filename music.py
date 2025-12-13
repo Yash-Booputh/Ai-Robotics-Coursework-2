@@ -6,7 +6,7 @@ from pathlib import Path
 def test_laptop_speaker():
     """Simple test to verify audio works on your laptop"""
     
-    print("🔊 Laptop Speaker Test")
+    print(" Laptop Speaker Test")
     print("=" * 40)
     
     # Initialize pygame mixer
@@ -22,7 +22,7 @@ def test_laptop_speaker():
     sound_folder.mkdir(exist_ok=True)
     
     # Check what sound files exist
-    print(f"\n📁 Checking 'robot_sounds' folder...")
+    print(f"\n Checking 'robot_sounds' folder...")
     sound_files = list(sound_folder.glob("*"))
     
     if not sound_files:
@@ -34,12 +34,12 @@ def test_laptop_speaker():
             print(f"  - {file.name}")
     
     # Test 1: Generate a test beep sound
-    print("\n🎵 TEST 1: Playing generated beep sound...")
+    print("\n TEST 1: Playing generated beep sound...")
     play_beep()
     time.sleep(1)
     
     # Test 2: Try to play existing sound files
-    print("\n🎵 TEST 2: Trying to play existing sound files...")
+    print("\n TEST 2: Trying to play existing sound files...")
     
     # Try common file types
     test_extensions = ['.mp3', '.wav', '.ogg']
@@ -57,7 +57,7 @@ def test_laptop_speaker():
                     pygame.mixer.music.play()
                     print(f"    Playing MP3...")
                     
-                    # Wait for it to finish
+                 
                     while pygame.mixer.music.get_busy():
                         time.sleep(0.1)
                         
@@ -80,7 +80,7 @@ def test_laptop_speaker():
         print("  No playable sound files found.")
     
     # Test 3: Volume control test
-    print("\n🎚️ TEST 3: Testing volume control...")
+    print("\n TEST 3: Testing volume control...")
     for volume in [0.3, 0.7, 1.0]:
         pygame.mixer.music.set_volume(volume)
         print(f"  Setting volume to {volume*100}%")
@@ -88,7 +88,7 @@ def test_laptop_speaker():
         time.sleep(0.5)
     
     # Test 4: Multiple sounds test
-    print("\n🎶 TEST 4: Testing multiple sounds...")
+    print("\n TEST 4: Testing multiple sounds...")
     print("  Playing three beeps in sequence:")
     for i, freq in enumerate([440, 550, 660]):
         print(f"    Beep {i+1} ({freq} Hz)")
@@ -96,8 +96,8 @@ def test_laptop_speaker():
         time.sleep(0.3)
     
     print("\n" + "=" * 40)
-    print("✅ Audio test complete!")
-    print("\n💡 Next steps:")
+    print(" Audio test complete!")
+    print("\n Next steps:")
     print("   1. Add your own MP3/WAV files to 'robot_sounds/' folder")
     print("   2. Run the full pizza robot simulation")
     print("   3. Connect external speakers via AUX if needed")
@@ -167,39 +167,39 @@ def quick_pizza_simulation():
     """Run a quick pizza simulation with your laptop speakers"""
     
     print("\n" + "="*50)
-    print("🍕 QUICK PIZZA ROBOT SIMULATION")
+    print(" QUICK PIZZA ROBOT SIMULATION")
     print("="*50)
     
     # Initialize
     pygame.mixer.init()
     
-    print("\n🤖 ROBOT: Welcome to PizzaBot! Testing audio system...")
+    print("\n ROBOT: Welcome to PizzaBot! Testing audio system...")
     play_beep(523, 0.2)  # C note
     time.sleep(0.5)
     
-    print("🤖 ROBOT: Pepperoni pizza coming up!")
+    print(" ROBOT: Pepperoni pizza coming up!")
     play_beep(587, 0.2)  # D note
     play_beep(659, 0.2)  # E note
     time.sleep(0.5)
     
-    print("🤖 ROBOT: Hawaiian pizza - sweet and savory!")
+    print(" ROBOT: Hawaiian pizza - sweet and savory!")
     play_beep(698, 0.2)  # F note
     play_beep(784, 0.2)  # G note
     time.sleep(0.5)
-    
-    print("🤖 ROBOT: Order complete! Enjoy your meal!")
+
+    print(" ROBOT: Order complete! Enjoy your meal!")
     play_beep(880, 0.3)  # A note
     play_beep(784, 0.2)  # G note
     play_beep(659, 0.4)  # E note
     
-    print("\n✅ Simulation complete!")
-    print("\n🔊 If you heard the beeps, your laptop speakers are working!")
+    print("\n Simulation complete!")
+    print("\n If you heard the beeps, your laptop speakers are working!")
     
     pygame.mixer.quit()
 
 def check_system_audio():
     """Check if system audio is working"""
-    print("\n🔧 System Audio Check")
+    print("\n System Audio Check")
     print("=" * 40)
     
     # Check OS
@@ -216,14 +216,14 @@ def check_system_audio():
         print("Linux detected: Check pulseaudio/alsa")
     
     # Simple volume check reminder
-    print("\n⚠️  Please ensure:")
+    print("\n  Please ensure:")
     print("   1. Your laptop volume is not muted")
     print("   2. Volume is turned up (try 50% or higher)")
     print("   3. No headphones are plugged in (unless you want to use them)")
 
 # Main menu
 def main():
-    print("🔊 Pizza Robot Audio Tester")
+    print(" Pizza Robot Audio Tester")
     print("=" * 40)
     print("Test the audio system on your laptop before using with DOFBot")
     print()
@@ -249,7 +249,7 @@ def main():
                 print("\nRunning full pizza robot...")
                 print("Make sure you have sound files in 'robot_sounds/' folder")
                 
-                # You'll need to have the full PizzaRobotAudio class defined
+            
                 try:
                     # Create a minimal version if the full class isn't available
                     print("Testing with minimal setup...")
