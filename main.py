@@ -30,7 +30,7 @@ try:
     from integrated_patrol_grab import IntegratedPatrolGrabSystem
     ROBOT_AVAILABLE = True
 except (ImportError, ModuleNotFoundError) as e:
-    print(f"⚠️  Robot hardware not available: {e}")
+    print(f"Warning: Robot hardware not available: {e}")
     print("   Running in UI-only mode (audio and UI will work)")
     IntegratedPatrolGrabSystem = None
     ROBOT_AVAILABLE = False
@@ -219,10 +219,10 @@ class ChefMateApp(tk.Tk):
         volume_container = tk.Frame(title_frame, bg=COLOR_TITLE_BAR)
         volume_container.pack(side=tk.RIGHT, padx=15, pady=10)
 
-        # Volume icon and label
+        # Volume label
         volume_label = tk.Label(
             volume_container,
-            text="🔊 Volume:",
+            text="Volume:",
             font=(FONT_FAMILY, 9),
             bg=COLOR_TITLE_BAR,
             fg=COLOR_TITLE_TEXT
@@ -448,7 +448,7 @@ class ChefMateApp(tk.Tk):
             if not ROBOT_AVAILABLE:
                 self.logger.warning("Robot hardware not available - running in demo mode")
                 if status_callback:
-                    status_callback("⚠️ Robot hardware not available (running demo mode)", "warning")
+                    status_callback("Warning: Robot hardware not available (running demo mode)", "warning")
 
                 # Simulate robot execution for testing UI and sounds
                 import time
@@ -457,38 +457,38 @@ class ChefMateApp(tk.Tk):
 
                 for i, ingredient in enumerate(ingredients, 1):
                     if status_callback:
-                        status_callback(f"🔍 Searching for {ingredient}...", "info")
+                        status_callback(f"Searching for {ingredient}...", "info")
                     time.sleep(1)
 
                     if status_callback:
-                        status_callback(f"✓ Target cube found!", "success")
+                        status_callback(f"Target cube found!", "success")
                     time.sleep(0.5)
 
                     if status_callback:
-                        status_callback(f"📦 Cube delivered to home ({i}/{len(ingredients)})", "success")
+                        status_callback(f"Cube delivered to home ({i}/{len(ingredients)})", "success")
                     time.sleep(1)
 
                 if status_callback:
-                    status_callback("✅ Order completed (demo mode)", "success")
+                    status_callback("Order completed (demo mode)", "success")
                 return True
 
             # Create patrol system if not already created
             if not self.patrol_system:
                 self.logger.info("Initializing IntegratedPatrolGrabSystem...")
                 if status_callback:
-                    status_callback("🔧 Initializing patrol system...", "info")
+                    status_callback("Initializing patrol system...", "info")
 
                 self.patrol_system = IntegratedPatrolGrabSystem()
 
-                self.logger.info("✓ IntegratedPatrolGrabSystem initialized")
+                self.logger.info("IntegratedPatrolGrabSystem initialized")
                 if status_callback:
-                    status_callback("✅ Patrol system ready", "success")
+                    status_callback("Patrol system ready", "success")
 
             # Check robot connection
             if not self.patrol_system.check_connection():
                 self.logger.error("Robot not connected")
                 if status_callback:
-                    status_callback("❌ Robot not connected", "error")
+                    status_callback("Robot not connected", "error")
                 return False
 
             # Execute pizza order

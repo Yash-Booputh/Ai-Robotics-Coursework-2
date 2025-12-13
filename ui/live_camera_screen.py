@@ -173,7 +173,7 @@ class LiveCameraScreen(ttk.Frame):
         )
         self.confidence_label.pack(pady=(0, 8))
 
-        # Model Status (NEW - shows if YOLO is loaded)
+        # Model Status 
         model_status_frame = tk.Frame(right_panel, bg=COLOR_BG_LIGHT, relief=tk.SUNKEN, borderwidth=1)
         model_status_frame.pack(fill=tk.X, padx=15, pady=8)
 

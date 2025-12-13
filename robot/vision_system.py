@@ -15,7 +15,7 @@ try:
     YOLO_AVAILABLE = True
 except ImportError:
     YOLO_AVAILABLE = False
-    print("⚠️  Warning: Ultralytics not found. Detection will be simulated.")
+    print("WARNING:  Warning: Ultralytics not found. Detection will be simulated.")
 
 from config.settings import (
     CAMERA_ID, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS,
@@ -68,7 +68,7 @@ class VisionSystem:
             _ = self.model(dummy_image, verbose=False, imgsz=YOLO_IMAGE_SIZE)
 
             self.is_model_loaded = True
-            self.logger.info("✅ YOLO model loaded successfully")
+            self.logger.info(" YOLO model loaded successfully")
             return True
 
         except Exception as e:
@@ -109,7 +109,7 @@ class VisionSystem:
                 return False
 
             self.is_camera_active = True
-            self.logger.info(f"✅ Camera started: {frame.shape[1]}x{frame.shape[0]}")
+            self.logger.info(f" Camera started: {frame.shape[1]}x{frame.shape[0]}")
             return True
 
         except Exception as e:
@@ -555,7 +555,7 @@ class VisionSystem:
             self.logger.info(f"Detected: {detected_class} ({confidence:.2f})")
 
             if detected_class == expected_ingredient:
-                self.logger.info(f"✅ Correct ingredient verified: {expected_ingredient}")
+                self.logger.info(f" Correct ingredient verified: {expected_ingredient}")
                 return True
             else:
                 self.logger.warning(f"Wrong ingredient! Expected {expected_ingredient}, got {detected_class}")

@@ -129,7 +129,7 @@ class GrabConfigurator:
                     self.joystick = pygame.joystick.Joystick(0)
                     self.joystick.init()
                     self.controller_enabled = True
-                    print(f"✓ Controller connected: {self.joystick.get_name()}")
+                    print(f" Controller connected: {self.joystick.get_name()}")
                     print(f"  Axes: {self.joystick.get_numaxes()}")
                     print(f"  Buttons: {self.joystick.get_numbuttons()}")
                 else:
@@ -200,7 +200,7 @@ class GrabConfigurator:
             print("  Please run slot_position_configurator.py first.")
             exit(1)
 
-        print(f"✓ Loaded {len(self.slot_positions)} slot positions")
+        print(f" Loaded {len(self.slot_positions)} slot positions")
 
         # Use grab_positions.json for waypoint support
         global GRAB_POSITIONS_FILE
@@ -224,7 +224,7 @@ class GrabConfigurator:
                 self.input_name = self.model.get_inputs()[0].name
                 self.input_shape = self.model.get_inputs()[0].shape
                 self.model_loaded = True
-                print(f"✓✓✓ MODEL LOADED! ✓✓✓")
+                print(f" MODEL LOADED! ")
             except Exception as e:
                 print(f"✗ Failed to load model: {e}")
         else:
@@ -272,7 +272,7 @@ class GrabConfigurator:
         try:
             with open(GRAB_POSITIONS_FILE, 'w') as f:
                 json.dump(self.grab_positions, f, indent=4)
-            print(f"\n✓ Grab positions saved to {GRAB_POSITIONS_FILE}")
+            print(f"\n Grab positions saved to {GRAB_POSITIONS_FILE}")
             return True
         except Exception as e:
             print(f"\n✗ Error saving grab positions: {e}")
@@ -297,7 +297,7 @@ class GrabConfigurator:
             3: "Delivery Position (drop location)"
         }
         print(f"\n" + "="*60)
-        print(f"✓ WAYPOINT {waypoint_num} SAVED!")
+        print(f" WAYPOINT {waypoint_num} SAVED!")
         print(f"  {waypoint_names[waypoint_num]}")
         print("="*60)
 
@@ -346,14 +346,14 @@ class GrabConfigurator:
             self.waypoints[2] = slot_data.get('waypoint_2_grab')
             self.waypoints[3] = slot_data.get('waypoint_3_delivery')
 
-            print(f"\n✓ Loaded existing waypoints for Slot {slot_number}:")
-            print(f"  WP1: {'✓ Configured' if self.waypoints[1] else '✗ Not configured'}")
-            print(f"  WP2: {'✓ Configured' if self.waypoints[2] else '✗ Not configured'}")
-            print(f"  WP3: {'✓ Configured' if self.waypoints[3] else '✗ Not configured'}")
+            print(f"\n Loaded existing waypoints for Slot {slot_number}:")
+            print(f"  WP1: {' Configured' if self.waypoints[1] else '✗ Not configured'}")
+            print(f"  WP2: {' Configured' if self.waypoints[2] else '✗ Not configured'}")
+            print(f"  WP3: {' Configured' if self.waypoints[3] else '✗ Not configured'}")
         else:
             # No existing data, reset waypoints
             self.waypoints = {1: None, 2: None, 3: None}
-            print(f"\n✓ No existing waypoints for Slot {slot_number}")
+            print(f"\n No existing waypoints for Slot {slot_number}")
 
     def move_to_slot(self, slot_number):
         """Move to a slot position and load existing waypoints"""
@@ -375,7 +375,7 @@ class GrabConfigurator:
             time.sleep(0.05)
 
         time.sleep(0.5)
-        print(f"✓ Arrived at Slot {slot_number}")
+        print(f" Arrived at Slot {slot_number}")
 
         # Load existing waypoints for this slot
         self.load_waypoints_for_slot(slot_number)
@@ -545,7 +545,7 @@ class GrabConfigurator:
 
         # Waypoint status (show all 3 waypoints)
         for wp_num in [1, 2, 3]:
-            status = "✓" if self.waypoints[wp_num] else "✗"
+            status = "" if self.waypoints[wp_num] else "✗"
             color = (0, 255, 0) if self.waypoints[wp_num] else (0, 0, 255)
             wp_names = {1: "WP1", 2: "WP2", 3: "WP3"}
             text = f"{wp_names[wp_num]}:{status}"
@@ -647,13 +647,13 @@ class GrabConfigurator:
 
         # Save to file
         if self.save_grab_positions():
-            print(f"✓ Waypoint saved to {GRAB_POSITIONS_FILE}")
+            print(f" Waypoint saved to {GRAB_POSITIONS_FILE}")
 
             # Show status of all waypoints for this slot
             print(f"\nSlot {slot_number} Status:")
-            print(f"  WP1: {'✓ Configured' if self.waypoints[1] else '✗ Not configured'}")
-            print(f"  WP2: {'✓ Configured' if self.waypoints[2] else '✗ Not configured'}")
-            print(f"  WP3: {'✓ Configured' if self.waypoints[3] else '✗ Not configured'}")
+            print(f"  WP1: {' Configured' if self.waypoints[1] else '✗ Not configured'}")
+            print(f"  WP2: {' Configured' if self.waypoints[2] else '✗ Not configured'}")
+            print(f"  WP3: {' Configured' if self.waypoints[3] else '✗ Not configured'}")
             return True
         else:
             print("✗ Failed to save to JSON!")

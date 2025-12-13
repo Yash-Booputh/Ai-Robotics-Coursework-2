@@ -108,7 +108,7 @@ class IntegratedPatrolGrabSystem:
         print("\nInitializing DOFBOT...")
         self.arm = Arm_Device()
         time.sleep(0.1)
-        print("✓ Robot arm initialized")
+        print("Robot arm initialized")
 
         # Initialize camera
         print("Initializing camera...")
@@ -117,24 +117,24 @@ class IntegratedPatrolGrabSystem:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        print("✓ Camera initialized")
+        print("Camera initialized")
 
         # Load positions
         self.slot_positions = self.load_json(SLOT_POSITIONS_FILE)
         self.grab_positions = self.load_json(GRAB_POSITIONS_FILE)
 
         if not self.slot_positions:
-            print("\n✗ ERROR: No slot positions found!")
+            print("\nERROR: No slot positions found!")
             print("  Run slot_position_configurator.py first")
             exit(1)
 
         if not self.grab_positions:
-            print("\n✗ ERROR: No grab positions found!")
+            print("\nERROR: No grab positions found!")
             print("  Run grab_position_configurator_v2.py first")
             exit(1)
 
-        print(f"✓ Loaded {len(self.slot_positions)} slot positions")
-        print(f"✓ Loaded {len(self.grab_positions)} grab sequences")
+        print(f"Loaded {len(self.slot_positions)} slot positions")
+        print(f"Loaded {len(self.grab_positions)} grab sequences")
 
         # Current angles
         self.current_angles = {}
@@ -154,11 +154,11 @@ class IntegratedPatrolGrabSystem:
                 self.input_name = self.model.get_inputs()[0].name
                 self.input_shape = self.model.get_inputs()[0].shape
                 self.model_loaded = True
-                print("✓✓✓ YOLO MODEL LOADED! ✓✓✓")
+                print("YOLO MODEL LOADED successfully")
             except Exception as e:
-                print(f"✗ Failed to load model: {e}")
+                print(f"Failed to load model: {e}")
         else:
-            print("\n✗ YOLO model not available - detection disabled")
+            print("\nYOLO model not available - detection disabled")
 
         print("="*60)
 
@@ -204,11 +204,11 @@ class IntegratedPatrolGrabSystem:
         for servo_key, angle in angles_dict.items():
             servo_id = int(servo_key.split('_')[1])
             if exclude_gripper and servo_id == 6:
-                print(f"    ✓ SKIP Servo {servo_id} (gripper excluded, stays at {self.current_angles.get(6, 'unknown')}°)")
+                print(f"    SKIP Servo {servo_id} (gripper excluded, stays at {self.current_angles.get(6, 'unknown')}°)")
             else:
                 servos_to_move.append((servo_id, angle))
                 if servo_id == 6:
-                    print(f"    ⚠️  WARNING: Servo 6 (gripper) WILL MOVE to {angle}° (exclude_gripper={exclude_gripper})")
+                    print(f"    WARNING: Servo 6 (gripper) WILL MOVE to {angle}° (exclude_gripper={exclude_gripper})")
 
         # Execute movements
         print(f"  DEBUG: Total servos to move: {len(servos_to_move)}")
@@ -218,12 +218,12 @@ class IntegratedPatrolGrabSystem:
             time.sleep(0.05)
 
         time.sleep(0.5)
-        print(f"  ✓ Reached {description}")
+        print(f"  Reached {description}")
 
     def move_to_slot(self, slot_key):
         """Move to slot scanning position"""
         if slot_key not in self.slot_positions:
-            print(f"✗ Slot {slot_key} not found in slot positions")
+            print(f"Slot {slot_key} not found in slot positions")
             return False
 
         slot_data = self.slot_positions[slot_key]
@@ -249,7 +249,7 @@ class IntegratedPatrolGrabSystem:
         print(f"  Ensuring gripper is fully open ({GRIPPER_OPEN}°)...")
         self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
         time.sleep(0.5)
-        print("  ✓ At home position with gripper open")
+        print("  At home position with gripper open")
 
     def check_connection(self):
         """Check if robot arm is connected"""
@@ -313,9 +313,9 @@ class IntegratedPatrolGrabSystem:
         return detections
 
     def detect_ingredient(self, num_samples=DETECTION_SAMPLES):
-        """Detect ingredient at current position"""
+        """Detect ingredient at current position using YOLO model"""
         if not self.model_loaded:
-            print("  ✗ YOLO model not loaded, skipping detection")
+            print("  YOLO model not loaded, skipping detection")
             return None, 0.0
 
         print(f"  Scanning (taking {num_samples} samples)...", end='', flush=True)
@@ -357,16 +357,24 @@ class IntegratedPatrolGrabSystem:
             avg_confidence = best_ingredient[1]['total_conf'] / best_ingredient[1]['count']
             vote_count = best_ingredient[1]['count']
 
-            print(f"  ✓ Detected: {ingredient_name} (confidence: {avg_confidence:.2f}, {vote_count}/{num_samples} samples)")
+            print(f"  Detected: {ingredient_name} (confidence: {avg_confidence:.2f}, {vote_count}/{num_samples} samples)")
             return ingredient_name, avg_confidence
         else:
-            print("  ✗ Nothing detected")
+            print("  Nothing detected")
             return None, 0.0
 
     def execute_grab_sequence(self, slot_key):
-        """Execute 3-waypoint grab and pickup sequence"""
+        """
+        Execute 3-waypoint grab and pickup sequence
+
+        Args:
+            slot_key: Identifier for the slot to grab from
+
+        Returns:
+            bool: True if grab sequence completed successfully
+        """
         if slot_key not in self.grab_positions:
-            print(f"✗ Grab sequence for {slot_key} not configured")
+            print(f"Grab sequence for {slot_key} not configured")
             return False
 
         grab_data = self.grab_positions[slot_key]
@@ -374,7 +382,7 @@ class IntegratedPatrolGrabSystem:
         # Get waypoint 2 to extract the closed gripper angle
         waypoint_2 = grab_data.get('waypoint_2_grab')
         if not waypoint_2:
-            print("✗ Waypoint 2 not found!")
+            print("Waypoint 2 not found!")
             return False
 
         # Get the gripper closed angle from waypoint 2
@@ -393,7 +401,7 @@ class IntegratedPatrolGrabSystem:
         self.move_servo(6, GRIPPER_OPEN, GRAB_SPEED)
         time.sleep(1.0)
         actual_gripper = self.current_angles.get(6, 'unknown')
-        print(f"        ✓ Gripper now at: {actual_gripper}°")
+        print(f"         Gripper now at: {actual_gripper}°")
         print("="*60)
 
         # Step 2: Move to Waypoint 1 (Safe Level Position - outside shelf)
@@ -404,7 +412,7 @@ class IntegratedPatrolGrabSystem:
         print("        Gripper behavior: EXCLUDED (stays OPEN at 0°)")
         waypoint_1 = grab_data.get('waypoint_1_safe_level')
         if not waypoint_1:
-            print("✗ Waypoint 1 not found!")
+            print(" Waypoint 1 not found!")
             return False
         print("\n        Waypoint 1 Target Angles:")
         for servo_key, angle in sorted(waypoint_1.items()):
@@ -453,12 +461,12 @@ class IntegratedPatrolGrabSystem:
         self.move_servo(6, gripper_closed_angle, GRAB_SPEED)
         time.sleep(2.0)
         gripper_after = self.current_angles.get(6, 'unknown')
-        print(f"        ✓ Gripper now at: {gripper_after}° (item grabbed!)")
+        print(f"         Gripper now at: {gripper_after}° (item grabbed!)")
         print("="*60)
 
         # Sequence complete - gripper remains CLOSED with item held
         print("\n" + "="*60)
-        print("  ✓ Grab sequence complete!")
+        print("   Grab sequence complete!")
         print("  ℹ Item is held securely in gripper")
         print(f"  ℹ Gripper status: CLOSED at {self.current_angles.get(6, 'unknown')}°")
         print("  ℹ Ready for delivery")
@@ -484,14 +492,14 @@ class IntegratedPatrolGrabSystem:
 
         # Get waypoint 3 from grab positions JSON
         if slot_key not in self.grab_positions:
-            print(f"✗ Grab sequence for {slot_key} not found!")
+            print(f" Grab sequence for {slot_key} not found!")
             return False
 
         grab_data = self.grab_positions[slot_key]
         waypoint_3 = grab_data.get('waypoint_3_delivery')
 
         if not waypoint_3:
-            print("✗ Waypoint 3 (delivery position) not configured!")
+            print(" Waypoint 3 (delivery position) not configured!")
             return False
 
         print("\n        Waypoint 3 Target Angles (Full Position):")
@@ -515,9 +523,9 @@ class IntegratedPatrolGrabSystem:
             time.sleep(SERVO_SEQUENTIAL_DELAY)
 
             actual_servo_2 = self.current_angles.get(2, 'unknown')
-            print(f"        ✓ Servo 2 now at: {actual_servo_2}°")
+            print(f"         Servo 2 now at: {actual_servo_2}°")
         else:
-            print("        ⚠️  Warning: Servo 2 not found in waypoint 3!")
+            print("        WARNING:  Warning: Servo 2 not found in waypoint 3!")
 
         # STAGE 2: Move remaining servos (1, 3, 4, 5) SEQUENTIALLY - exclude servo 2 and servo 6
         print("\n" + "="*60)
@@ -544,11 +552,11 @@ class IntegratedPatrolGrabSystem:
             time.sleep(SERVO_SEQUENTIAL_DELAY)
 
             actual_angle = self.current_angles.get(servo_id, 'unknown')
-            print(f"          ✓ Servo {servo_id} now at: {actual_angle}°")
+            print(f"           Servo {servo_id} now at: {actual_angle}°")
 
         gripper_after = self.current_angles.get(6, 'unknown')
         print(f"\n        Gripper angle AFTER move: {gripper_after}° (should still be {gripper_before}°)")
-        print(f"        ✓ Reached waypoint 3 delivery position")
+        print(f"         Reached waypoint 3 delivery position")
         time.sleep(0.5)
 
         # Now open gripper to drop ingredient (with delay to ensure all servos settled)
@@ -565,7 +573,7 @@ class IntegratedPatrolGrabSystem:
         gripper_final = self.current_angles.get(6, 'unknown')
         print(f"  Gripper AFTER: {gripper_final}° (OPEN - ingredient dropped!)")
 
-        print("\n  ✓ Ingredient delivered!")
+        print("\n   Ingredient delivered!")
         print("="*60)
         return True
 
@@ -577,7 +585,7 @@ class IntegratedPatrolGrabSystem:
         # CHECK IF MODEL IS LOADED BEFORE STARTING PATROL
         if not self.model_loaded:
             print("\n" + "="*60)
-            print("✗ ERROR: YOLO model not loaded!")
+            print(" ERROR: YOLO model not loaded!")
             print("="*60)
             print("Cannot patrol without object detection.")
             print("Please ensure:")
@@ -592,13 +600,13 @@ class IntegratedPatrolGrabSystem:
 
         # Get sorted slot names
         slot_keys = sorted(self.slot_positions.keys())
-        print(f"\n📋 Patrol sequence: {slot_keys}")
+        print(f"\n Patrol sequence: {slot_keys}")
         print(f"   Total slots to check: {len(slot_keys)}\n")
 
         for idx, slot_key in enumerate(slot_keys, 1):
             # Check if stop was requested
             if self.stop_requested:
-                print("\n⚠️ STOP REQUESTED - Aborting patrol")
+                print("\nWARNING: STOP REQUESTED - Aborting patrol")
                 return None
 
             print(f"\n{'='*60}")
@@ -607,7 +615,7 @@ class IntegratedPatrolGrabSystem:
 
             # Move to slot
             if not self.move_to_slot(slot_key):
-                print(f"  ✗ Failed to move to {slot_key}, skipping...")
+                print(f"   Failed to move to {slot_key}, skipping...")
                 continue
 
             # Detect what's there
@@ -615,7 +623,7 @@ class IntegratedPatrolGrabSystem:
 
             # Check if we found what we're looking for
             if detected_ingredient == target_ingredient and confidence >= CONFIDENCE_THRESHOLD:
-                print(f"\n🎯 FOUND {target_ingredient} at {slot_key}!")
+                print(f"\n FOUND {target_ingredient} at {slot_key}!")
                 print(f"   Confidence: {confidence:.2f} (threshold: {CONFIDENCE_THRESHOLD})")
 
                 # AUTOMATICALLY execute grab sequence (no user prompt)
@@ -627,7 +635,7 @@ class IntegratedPatrolGrabSystem:
 
                 if success:
                     print("\n" + "="*60)
-                    print(f"✓✓✓ SUCCESS! {target_ingredient} GRABBED FROM {slot_key}")
+                    print(f" SUCCESS! {target_ingredient} GRABBED FROM {slot_key}")
                     print("="*60)
 
                     # Deliver to basket using waypoint 3
@@ -635,17 +643,17 @@ class IntegratedPatrolGrabSystem:
 
                     if delivery_success:
                         print("\n" + "="*60)
-                        print(f"✓✓✓ {target_ingredient} DELIVERED TO BASKET!")
+                        print(f" {target_ingredient} DELIVERED TO BASKET!")
                         print("="*60)
                         return slot_key
                     else:
                         print("\n" + "="*60)
-                        print(f"✗ FAILED to deliver {target_ingredient} to basket")
+                        print(f" FAILED to deliver {target_ingredient} to basket")
                         print("="*60)
                         return None
                 else:
                     print("\n" + "="*60)
-                    print(f"✗ FAILED to grab {target_ingredient} from {slot_key}")
+                    print(f" FAILED to grab {target_ingredient} from {slot_key}")
                     print("="*60)
                     return None
 
@@ -653,7 +661,7 @@ class IntegratedPatrolGrabSystem:
             print(f"  ➜ Not here, continuing patrol...")
 
         print("\n" + "="*60)
-        print(f"✗ {target_ingredient} not found in any slot")
+        print(f" {target_ingredient} not found in any slot")
         print("="*60)
         return None
 
@@ -669,7 +677,7 @@ class IntegratedPatrolGrabSystem:
             bool: True if order completed successfully
         """
         if not RECIPES_AVAILABLE:
-            print("\n✗ ERROR: Recipe configuration not available!")
+            print("\n ERROR: Recipe configuration not available!")
             print("Cannot execute pizza orders without recipe data.")
             return False
 
@@ -677,11 +685,11 @@ class IntegratedPatrolGrabSystem:
         ingredients_needed = get_pizza_ingredients(pizza_name)
 
         if not ingredients_needed:
-            print(f"\n✗ ERROR: Unknown pizza: {pizza_name}")
+            print(f"\n ERROR: Unknown pizza: {pizza_name}")
             return False
 
         print("\n" + "="*60)
-        print(f"🍕 PIZZA ORDER: {pizza_name}")
+        print(f" PIZZA ORDER: {pizza_name}")
         print("="*60)
         print(f"Ingredients needed: {len(ingredients_needed)}")
         for i, ingredient in enumerate(ingredients_needed, 1):
@@ -691,7 +699,7 @@ class IntegratedPatrolGrabSystem:
 
         # Update status callback if provided
         if status_callback:
-            status_callback(f"🍕 Starting order: {pizza_name}", "info")
+            status_callback(f" Starting order: {pizza_name}", "info")
             status_callback(f"Ingredients needed: {len(ingredients_needed)}", "info")
 
         # Reset stop flag at start
@@ -710,9 +718,9 @@ class IntegratedPatrolGrabSystem:
         for index, ingredient in enumerate(ingredients_needed, 1):
             # Check if stop was requested
             if self.stop_requested:
-                print("\n⚠️ STOP REQUESTED - Aborting order")
+                print("\nWARNING: STOP REQUESTED - Aborting order")
                 if status_callback:
-                    status_callback("⚠️ Order stopped by user", "warning")
+                    status_callback("WARNING: Order stopped by user", "warning")
                 self.move_to_home()
                 return False
             display_name = get_ingredient_display_name(ingredient)
@@ -734,16 +742,16 @@ class IntegratedPatrolGrabSystem:
                 ingredients_picked.append(ingredient)
 
                 if status_callback:
-                    status_callback(f"✓ {display_name} grabbed from {found_slot}", "success")
+                    status_callback(f" {display_name} grabbed from {found_slot}", "success")
             else:
-                print(f"\n✗ FAILED: Could not find or grab {display_name}")
+                print(f"\n FAILED: Could not find or grab {display_name}")
 
                 if status_callback:
-                    status_callback(f"✗ Failed to find {display_name}", "error")
+                    status_callback(f" Failed to find {display_name}", "error")
 
                 # Order failed
                 print("\n" + "="*60)
-                print(f"❌ ORDER FAILED")
+                print(f" ORDER FAILED")
                 print(f"Missing ingredient: {display_name}")
                 print(f"Progress: {len(ingredients_picked)}/{len(ingredients_needed)} ingredients")
                 print("="*60)
@@ -754,12 +762,12 @@ class IntegratedPatrolGrabSystem:
 
         # All ingredients collected!
         print("\n" + "="*60)
-        print(f"🎉 ORDER COMPLETE! {pizza_name} is ready!")
+        print(f" ORDER COMPLETE! {pizza_name} is ready!")
         print(f"All {len(ingredients_needed)} ingredients collected successfully!")
         print("="*60)
 
         if status_callback:
-            status_callback(f"🎉 Order complete! {pizza_name} is ready!", "success")
+            status_callback(f" Order complete! {pizza_name} is ready!", "success")
 
         # Victory beeps
         self.buzzer_beep(3)
@@ -811,7 +819,7 @@ def main():
                 print("\nConfigured slots:")
                 for slot_key in sorted(system.slot_positions.keys()):
                     has_grab = slot_key in system.grab_positions
-                    status = "✓ Ready" if has_grab else "✗ No grab sequence"
+                    status = " Ready" if has_grab else " No grab sequence"
                     print(f"  {slot_key}: {status}")
                 continue
             elif user_input in [name.lower() for name in CLASS_NAMES]:
@@ -822,11 +830,11 @@ def main():
                 found_slot = system.patrol_and_find(target)
 
                 if found_slot:
-                    print(f"\n✓ Mission complete! {target} grabbed from {found_slot}")
+                    print(f"\n Mission complete! {target} grabbed from {found_slot}")
                 else:
-                    print(f"\n✗ Mission failed - {target} not found or grab failed")
+                    print(f"\n Mission failed - {target} not found or grab failed")
             else:
-                print(f"✗ Unknown ingredient: {user_input}")
+                print(f" Unknown ingredient: {user_input}")
                 print("Please choose from the available ingredients list.")
 
     except KeyboardInterrupt:

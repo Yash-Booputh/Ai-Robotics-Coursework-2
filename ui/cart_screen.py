@@ -38,24 +38,24 @@ class CartScreen(ttk.Frame):
 
     def create_widgets(self):
         """Create all UI widgets"""
-        # Main container - reduced padding
+        # Main container 
         main_frame = tk.Frame(self, bg=COLOR_BG_DARK)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
 
-        # Header - more compact
+        # Header 
         header_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
         header_frame.pack(fill=tk.X, pady=(0, 15))
 
         title_label = tk.Label(
             header_frame,
             text="🛒 Your Order",
-            font=(FONT_FAMILY, 22, "bold"),  # Reduced font size
+            font=(FONT_FAMILY, 22, "bold"), 
             bg=COLOR_BG_DARK,
             fg=COLOR_PRIMARY
         )
         title_label.pack()
 
-        # Order details container - cream card with proportional sizing
+        # Order details container
         details_frame = tk.Frame(
             main_frame,
             bg=COLOR_BG_LIGHT,
@@ -66,11 +66,11 @@ class CartScreen(ttk.Frame):
         )
         details_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
 
-        # Pizza info section - reduced padding
+        # Pizza info section
         self.pizza_info_frame = tk.Frame(details_frame, bg=COLOR_BG_LIGHT)
         self.pizza_info_frame.pack(fill=tk.BOTH, expand=True, padx=25, pady=20)
 
-        # Create initial "no order" message
+        # Create initial 
         self.no_order_label = tk.Label(
             self.pizza_info_frame,
             text="No pizza in cart",
@@ -80,7 +80,7 @@ class CartScreen(ttk.Frame):
         )
         self.no_order_label.pack(expand=True)
 
-        # Buttons frame - compact and clean
+        # Buttons frame
         buttons_frame = tk.Frame(main_frame, bg=COLOR_BG_LIGHT, relief=tk.SOLID, borderwidth=1)
         buttons_frame.pack(fill=tk.X, pady=0, ipady=10)
 
@@ -102,7 +102,7 @@ class CartScreen(ttk.Frame):
         )
         self.back_btn.pack(side=tk.LEFT, padx=15, pady=5)
 
-        # Place order button - compact
+        # Place order button
         self.order_btn = tk.Button(
             buttons_frame,
             text="Place Order & Start Robot 🚀",
@@ -158,7 +158,7 @@ class CartScreen(ttk.Frame):
         else:
             self.back_btn.configure(text="← Back to Menu")
 
-        # Pizza name - more compact
+        # Pizza name 
         name_label = tk.Label(
             self.pizza_info_frame,
             text=pizza_data["name"],
@@ -168,7 +168,7 @@ class CartScreen(ttk.Frame):
         )
         name_label.pack(pady=(0, 8))
 
-        # Description - more compact
+        # Description 
         desc_label = tk.Label(
             self.pizza_info_frame,
             text=pizza_data["description"],
@@ -179,14 +179,14 @@ class CartScreen(ttk.Frame):
         )
         desc_label.pack(pady=(0, 12))
 
-        # Divider - thinner
+        # Divider 
         tk.Frame(
             self.pizza_info_frame,
             bg=COLOR_BG_MEDIUM,
             height=1
         ).pack(fill=tk.X, pady=12)
 
-        # Ingredients section - more compact
+        # Ingredients section 
         ing_title = tk.Label(
             self.pizza_info_frame,
             text="Robot will pick these ingredients:",
@@ -196,7 +196,7 @@ class CartScreen(ttk.Frame):
         )
         ing_title.pack(pady=(0, 10))
 
-        # Ingredients list - more compact
+        # Ingredients list
         ingredients_frame = tk.Frame(self.pizza_info_frame, bg=COLOR_BG_LIGHT)
         ingredients_frame.pack()
 
@@ -232,7 +232,7 @@ class CartScreen(ttk.Frame):
             height=1
         ).pack(fill=tk.X, pady=12)
 
-        # Price - more compact
+        # Price 
         price_frame = tk.Frame(self.pizza_info_frame, bg=COLOR_BG_LIGHT)
         price_frame.pack()
 

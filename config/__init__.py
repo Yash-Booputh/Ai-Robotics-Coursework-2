@@ -2,7 +2,6 @@
 ChefMate Robot Assistant - Configuration Package
 Easy imports for all configuration modules
 
-NOTE: Robot positions have been moved to integrated_patrol_grab.py
 """
 
 from .settings import *

@@ -1,8 +1,6 @@
 """
-AprilTag Chef Surprise with OpenCV Hand Gesture Controls
-Detects AprilTag 0 to activate Surprise Mode
-Uses pure OpenCV for hand gesture recognition (thumbs up/open hand)
-No cvzone, no mediapipe - only OpenCV contour analysis
+AprilTag Chef Surprise with Hand Gesture Control
+Detects AprilTag 0 to activate Surprise Mode and uses OpenCV for hand gesture recognition
 """
 
 import cv2
@@ -172,67 +170,64 @@ class SimpleHandGestureDetector:
             hull_perimeter = cv2.arcLength(hull, True)
             perimeter_ratio = perimeter / hull_perimeter if hull_perimeter > 0 else 1
 
-            # ========== THUMBS UP DETECTION (1-2 FINGERS) ==========
-            # Thumbs up is much more intuitive and reliable
+            # Thumbs up detection: 1-2 fingers extended
             # Single finger extended pointing upward
-            # Accept 1-2 finger tips (sometimes thumb + small detection artifact)
+            # Accept 1-2 finger tips
 
             # Primary: 1-2 finger tips detected (lenient for thumbs up)
             has_thumb_fingers = finger_count in [1, 2]
 
-            # Secondary: Higher solidity than open hand (closed fist with thumb up)
-            # Thumbs up should have moderate to high solidity
-            has_good_shape = solidity > 0.72  # Balanced for reliable detection
+            # Higher solidity indicates closed fist with thumb up
+            has_good_shape = solidity > 0.72
 
-            # THUMBS UP DETECTION: Reliable detection
+            # Thumbs up detection requires both conditions
             is_thumbs_up = has_thumb_fingers and has_good_shape
 
-            # ========== OPEN HAND DETECTION (SLIGHTLY LENIENT) ==========
+            # Open hand detection criteria
             open_criteria = []
 
-            # Critical: Low solidity (gaps between fingers) - slightly more lenient
-            if solidity < 0.80:  # Balanced for reliable detection
+            # Low solidity indicates gaps between fingers
+            if solidity < 0.80:
                 open_criteria.append("low_solidity")
 
-            # Critical: 5 fingers visible (or 4 with low solidity)
+            # Check finger count
             if finger_count == 5:
                 open_criteria.append("all_five_fingers")
-            elif finger_count == 4 and solidity < 0.68:  # Increased from 0.65
-                # Accept 4 fingers if solidity is low (indicating strong gaps)
+            elif finger_count == 4 and solidity < 0.68:
                 open_criteria.append("four_fingers_strong_gaps")
 
-            # Supporting: Complex perimeter (jagged from fingers)
-            if perimeter_ratio > 1.22:  # Slightly reduced from 1.25
+            # Complex perimeter indicates jagged edges from fingers
+            if perimeter_ratio > 1.22:
                 open_criteria.append("complex_perimeter")
 
-            # Supporting: Aspect ratio closer to square (spread hand)
-            if 0.65 <= aspect_ratio <= 1.45:  # Slightly wider range
+            # Aspect ratio check for spread hand
+            if 0.65 <= aspect_ratio <= 1.45:
                 open_criteria.append("good_shape")
 
-            # OPEN HAND: Must have low solidity + (5 fingers OR 4 with low solidity) + 1 supporting
+            # Open hand requires low solidity, sufficient fingers, and supporting criteria
             is_strict_open = (
                 "low_solidity" in open_criteria and
                 ("all_five_fingers" in open_criteria or "four_fingers_strong_gaps" in open_criteria) and
                 len(open_criteria) >= 3
             )
 
-            # ========== FINAL CLASSIFICATION ==========
+            # Final gesture classification
             if is_thumbs_up and not is_strict_open:
-                print(f"✅ THUMBS UP 👍 | Sol: {solidity:.2f}, Fingers: {finger_count}")
+                print(f"THUMBS UP detected | Solidity: {solidity:.2f}, Fingers: {finger_count}")
                 return "THUMBSUP"
 
             elif is_strict_open and not is_thumbs_up:
-                print(f"✅ OPEN 🖐 | Sol: {solidity:.2f}, Fingers: {finger_count}")
+                print(f"OPEN HAND detected | Solidity: {solidity:.2f}, Fingers: {finger_count}")
                 return "OPEN"
 
             else:
-                # Concise rejection feedback
+                # Provide feedback for failed detection
                 if finger_count in [1, 2] and not has_good_shape:
-                    print(f"❌ {finger_count} finger(s) but low solidity ({solidity:.2f}) - close fist more for THUMBS UP")
+                    print(f"{finger_count} finger(s) detected but low solidity ({solidity:.2f}) - close fist more for THUMBS UP")
                 elif finger_count == 3:
-                    print(f"❌ 3 fingers - spread ALL 5 for OPEN!")
+                    print(f"3 fingers detected - spread all 5 fingers for OPEN HAND")
                 elif finger_count == 4:
-                    print(f"❌ 4 fingers - spread ALL 5 WIDE for OPEN!")
+                    print(f"4 fingers detected - spread all 5 fingers wide for OPEN HAND")
                 return None
 
         except Exception as e:
@@ -241,7 +236,7 @@ class SimpleHandGestureDetector:
 
     def get_stable_gesture(self, current_gesture):
         """
-        Return gesture only if stable for required frames
+        Return gesture only if stable for required frames to avoid false positives
         """
         self.gesture_history.append(current_gesture)
 
@@ -252,7 +247,7 @@ class SimpleHandGestureDetector:
         # Check if all recent gestures are the same and not None
         if len(self.gesture_history) == self.stability_frames:
             if current_gesture is not None and all(g == current_gesture for g in self.gesture_history):
-                print(f"⭐ STABLE {current_gesture}!")
+                print(f"STABLE gesture detected: {current_gesture}")
                 return current_gesture
 
         return None
@@ -309,11 +304,11 @@ class ChefSurpriseDetector:
 
         print("[OK] Camera opened successfully")
         print("[OK] Hand gesture detector initialized")
-        print("\n📋 INSTRUCTIONS:")
+        print("\nINSTRUCTIONS:")
         print("1. Show AprilTag 0 to activate Surprise Mode")
         print("2. Place hand in green ROI box")
-        print("3. Show THUMBS UP 👍 to lock in pizza order")
-        print("4. Show OPEN HAND 🖐 to generate new pizza")
+        print("3. Show THUMBS UP to lock in pizza order")
+        print("4. Show OPEN HAND to generate new pizza")
         print("5. Press 'q' to quit, 'r' to reset")
         print("=" * 70)
 
@@ -348,7 +343,7 @@ class ChefSurpriseDetector:
         with open(filename, 'w') as f:
             json.dump(order_data, f, indent=2)
 
-        print(f"\n💾 [SAVED] Order saved to {filename}")
+        print(f"\n[SAVED] Order saved to {filename}")
         return filename
 
     def detect_tags(self, frame):
@@ -463,7 +458,7 @@ class ChefSurpriseDetector:
             self.gesture_cooldown = self.cooldown_frames
             self.last_gesture = "THUMBSUP"
             self.hand_detector.gesture_history.clear()
-            print(f"\n👍 THUMBS UP CONFIRMED - Order locked in!")
+            print(f"\nTHUMBS UP CONFIRMED - Order locked in!")
 
             # Show confirmation dialog
             root = tk.Tk()
@@ -482,9 +477,9 @@ class ChefSurpriseDetector:
                 self.save_order(self.locked_pizza)
                 self.user_wants_checkout = True
                 self.should_exit = True
-                print("✅ Proceeding to checkout...")
+                print("Proceeding to checkout...")
             else:  # User clicked No - reset everything
-                print("🔄 Resetting order - starting fresh...")
+                print("Resetting order - starting fresh...")
                 self.locked_pizza = None
                 self.current_pizza = None
                 self.surprise_mode = False
@@ -497,7 +492,7 @@ class ChefSurpriseDetector:
             self.gesture_cooldown = self.cooldown_frames
             self.last_gesture = "OPEN"
             self.hand_detector.gesture_history.clear()
-            print(f"\n🖐 OPEN HAND CONFIRMED - New pizza!")
+            print(f"\nOPEN HAND CONFIRMED - New pizza!")
             print(f"Price: ${self.current_pizza['price']:.2f}")
             for ing in self.current_pizza['ingredients']:
                 print(f" - {AVAILABLE_INGREDIENTS[ing]}")
@@ -546,7 +541,7 @@ class ChefSurpriseDetector:
                     if tag.tag_id == 0 and not self.surprise_mode:
                         self.surprise_mode = True
                         self.current_pizza = self.generate_random_pizza()
-                        print("\n🎯 SURPRISE MODE ACTIVATED!")
+                        print("\nSURPRISE MODE ACTIVATED!")
                         print(f"Price: ${self.current_pizza['price']:.2f}")
                         for ing in self.current_pizza['ingredients']:
                             print(f" - {AVAILABLE_INGREDIENTS[ing]}")
@@ -652,25 +647,25 @@ class ChefSurpriseDetector:
 
                     # If any property returns -1, window was closed
                     if visible < 0 or autosize < 0:
-                        print("\n👋 Window closed by user")
+                        print("\nWindow closed by user")
                         break
                 except cv2.error:
                     # Window was destroyed
-                    print("\n👋 Window closed by user")
+                    print("\nWindow closed by user")
                     break
                 except Exception:
                     # Any other error means window is gone
-                    print("\n👋 Window closed by user")
+                    print("\nWindow closed by user")
                     break
                 if key == ord('q'):
-                    print("\n👋 Quit requested")
+                    print("\nQuit requested")
                     break
                 elif key == ord('r'):
                     self.surprise_mode = False
                     self.current_pizza = None
                     self.locked_pizza = None
                     self.hand_detector.gesture_history.clear()
-                    print("\n🔄 [RESET] System reset")
+                    print("\n[RESET] System reset")
 
         finally:
             self.cleanup()
@@ -680,15 +675,16 @@ class ChefSurpriseDetector:
         if self.cap:
             self.cap.release()
         cv2.destroyAllWindows()
-        print("\n👋 [EXIT] Application closed")
+        print("\n[EXIT] Application closed")
 
 
 def main():
+    """Main entry point for the application"""
     try:
         detector = ChefSurpriseDetector(camera_id=CAMERA_INDEX)
         detector.run()
     except Exception as e:
-        print(f"\n❌ [ERROR] {e}")
+        print(f"\n[ERROR] {e}")
         import traceback
         traceback.print_exc()
 

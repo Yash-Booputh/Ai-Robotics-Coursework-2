@@ -68,7 +68,7 @@ class MenuScreen(ttk.Frame):
         # Title
         title_label = tk.Label(
             header_frame,
-            text="🍕 Select Your Pizza",
+            text="Select Your Pizza",
             font=(FONT_FAMILY, FONT_SIZE_HEADER, "bold"),
             bg=COLOR_BG_DARK,
             fg=COLOR_PRIMARY
@@ -204,9 +204,9 @@ class MenuScreen(ttk.Frame):
                 img_label.image = photo  # Keep reference
                 img_label.pack(pady=5)
             except Exception as e:
-                self.create_placeholder_image(image_frame, "🍕")
+                self.create_placeholder_image(image_frame, "PIZZA")
         else:
-            self.create_placeholder_image(image_frame, "🍕")
+            self.create_placeholder_image(image_frame, "PIZZA")
 
         # Info section
         info_frame = tk.Frame(card_frame, bg=COLOR_BG_LIGHT)
@@ -308,7 +308,7 @@ class MenuScreen(ttk.Frame):
         # Select new
         self.selected_pizza = pizza_name
         card_frame.configure(borderwidth=3, relief=tk.SOLID, highlightbackground=COLOR_PRIMARY)
-        card_frame.select_btn.configure(text="✓ Selected", bg=COLOR_SUCCESS)
+        card_frame.select_btn.configure(text=" Selected", bg=COLOR_SUCCESS)
 
         # Update bottom bar
         self.selected_label.configure(text=f"Selected: {pizza_name}", fg=COLOR_TEXT_DARK)

@@ -288,7 +288,7 @@ class SlotConfigurator:
                     self.joystick = pygame.joystick.Joystick(0)
                     self.joystick.init()
                     self.controller_enabled = True
-                    print(f"✓ Controller connected: {self.joystick.get_name()}")
+                    print(f" Controller connected: {self.joystick.get_name()}")
                     print(f"  Axes: {self.joystick.get_numaxes()}")
                     print(f"  Buttons: {self.joystick.get_numbuttons()}")
                 else:
@@ -311,7 +311,7 @@ class SlotConfigurator:
 
         if USE_THREADING:
             self.cap = ThreadedCamera(src=0, width=640, height=480).start()
-            print("✓ Using threaded camera capture")
+            print(" Using threaded camera capture")
             time.sleep(0.5)
         else:
             self.cap = cv2.VideoCapture(0)
@@ -358,12 +358,12 @@ class SlotConfigurator:
         print("="*60)
 
         if os.path.exists("models/best.pt"):
-            print("✓ models/best.pt found")
+            print(" models/best.pt found")
         else:
             print("✗ models/best.pt NOT found")
 
         if os.path.exists(MODEL_PATH):
-            print(f"✓ {MODEL_PATH} found")
+            print(f" {MODEL_PATH} found")
         else:
             print(f"✗ {MODEL_PATH} NOT found")
 
@@ -374,13 +374,13 @@ class SlotConfigurator:
                 self.input_name = self.model.get_inputs()[0].name
                 self.input_shape = self.model.get_inputs()[0].shape
                 self.model_loaded = True
-                print(f"✓✓✓ MODEL LOADED SUCCESSFULLY! ✓✓✓")
+                print(f" MODEL LOADED SUCCESSFULLY! ")
                 print(f"Model input name: {self.input_name}")
                 print(f"Model input shape: {self.input_shape}")
 
                 if USE_THREADING:
                     self.detection_thread = DetectionThread(self.model, self.input_name, self.input_shape).start()
-                    print("✓ Using threaded object detection")
+                    print(" Using threaded object detection")
             except Exception as e:
                 print(f"✗✗✗ FAILED TO LOAD MODEL ✗✗✗")
                 print(f"Error: {e}")
@@ -432,7 +432,7 @@ class SlotConfigurator:
         try:
             with open(SLOTS_FILE, 'w') as f:
                 json.dump(self.slot_positions, f, indent=4)
-            print(f"\n✓ Positions saved to {SLOTS_FILE}")
+            print(f"\n Positions saved to {SLOTS_FILE}")
             return True
         except Exception as e:
             print(f"\n✗ Error saving positions: {e}")
@@ -719,7 +719,7 @@ class SlotConfigurator:
         }
 
         if self.save_positions():
-            print(f"✓ Slot {slot_number} position saved to {SLOTS_FILE}")
+            print(f" Slot {slot_number} position saved to {SLOTS_FILE}")
             print(f"\nServo Angles:")
             for servo_id in range(1, NUM_SERVOS + 1):
                 angle = self.current_angles[servo_id]

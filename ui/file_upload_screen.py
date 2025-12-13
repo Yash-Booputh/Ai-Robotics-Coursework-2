@@ -66,7 +66,7 @@ class FileUploadScreen(ttk.Frame):
         content_frame = tk.Frame(main_frame, bg=COLOR_BG_DARK)
         content_frame.pack(fill=tk.BOTH, expand=True)
 
-        # LEFT panel - Upload controls with scrollbar (FIXED WIDTH - 300px)
+        # LEFT panel - Upload controls with scrollbar 
         left_panel_container = tk.Frame(content_frame, bg=COLOR_BG_LIGHT, width=300, relief=tk.RAISED, borderwidth=1)
         left_panel_container.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 5))
         left_panel_container.pack_propagate(False)
@@ -146,7 +146,7 @@ class FileUploadScreen(ttk.Frame):
         # Separator
         tk.Frame(left_panel, bg=COLOR_BG_MEDIUM, height=1).pack(fill=tk.X, padx=15, pady=8)
 
-        # Detection result (moved to left panel)
+        # Detection result 
         result_title = tk.Label(
             left_panel,
             text="Detection Result",
@@ -182,7 +182,7 @@ class FileUploadScreen(ttk.Frame):
         # Separator
         tk.Frame(left_panel, bg=COLOR_BG_MEDIUM, height=1).pack(fill=tk.X, padx=15, pady=8)
 
-        # Info section (more compact)
+        # Info section 
         info_frame = tk.Frame(left_panel, bg=COLOR_BG_LIGHT)
         info_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
 
