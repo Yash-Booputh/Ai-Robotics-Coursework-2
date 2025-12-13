@@ -173,7 +173,6 @@ robot_sounds/error_1.wav
 
 **IMPORTANT:** Always run the application from within the virtual environment.
 
-**On Linux/Raspberry Pi:**
 ```bash
 # Activate virtual environment (if not already activated)
 source .venv/bin/activate
@@ -182,14 +181,7 @@ source .venv/bin/activate
 .venv/bin/python main.py
 ```
 
-**On Windows:**
-```bash
-# Activate virtual environment (if not already activated)
-.venv\Scripts\activate
 
-# Run the application
-.venv\Scripts\python main.py
-```
 
 **Alternative method (with activated environment):**
 ```bash
