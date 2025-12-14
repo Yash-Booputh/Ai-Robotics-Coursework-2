@@ -12,6 +12,10 @@ Watch the full system demonstration and presentation:
 GitHub Repository:
 [Yash-Booputh/Ai-Robotics-Coursework-2](https://github.com/Yash-Booputh/Ai-Robotics-Coursework-2)
 
+## Dataset on Roboflow
+Access the dataset:
+[ChefMate Project – Roboflow Universe](https://universe.roboflow.com/yolo-mer6h/chefmate-project-yi3kn)
+
 ---
 
 ## Table of Contents
@@ -298,6 +302,81 @@ Ai-Robotics-Coursework-2/
 ```
 
 ---
+## Parameter Table
+### Camera Hardware Settings
+
+| Parameter        | Config File         | Default Value | Description              | Valid Range |
+|------------------|---------------------|---------------|--------------------------|-------------|
+| CAMERA_ID        | config/settings.py  | 2             | USB camera device ID     | 0–10        |
+| CAMERA_WIDTH     | config/settings.py  | 640           | Frame width in pixels    | 320–1920    |
+| CAMERA_HEIGHT    | config/settings.py  | 480           | Frame height in pixels   | 240–1080    |
+| **CAMERA_FPS**   | config/settings.py  | 30            | Frames per second        | 15–60       |
+
+### YOLO Inference Settings
+
+| Parameter                          | Config File                          | Default Value        | Description                              | Performance Impact                          |
+|-----------------------------------|--------------------------------------|----------------------|------------------------------------------|---------------------------------------------|
+| YOLO_IMAGE_SIZE                   | config/settings.py                   | 320                  | Input image size for detection           | Smaller = faster, less accurate              |
+| imgsz in detect_ingredient_fast() | vision_system.py                     | 320                  | Fast mode image size                     | Optimized for live view                      |
+| imgsz in detect_ingredient()      | vision_system.py                     | 640                  | Standard mode image size                 | Balanced accuracy/speed                      |
+| half parameter                    | vision_system.py                     | False                | Half-precision inference                 | Disabled for compatibility                   |
+| MODEL_PATH                        | integrated_patrol_grab_system.py     | models/best.onnx     | Path to ONNX model file                  | –                                           |
+| MODEL_TYPE                        | N/A                                  | ONNX Runtime         | Inference backend                        | Faster than PyTorch, good for edge devices   |
+| CONFIDENCE_THRESHOLD              | integrated_patrol_grab_system.py     | 0.5                  | Minimum confidence for detection         | Higher = fewer false positives               |
+| DETECTION_SAMPLES                 | integrated_patrol_grab_system.py     | 3                    | Consecutive detections required          | Higher = more reliable, slower               |
+
+### DOFBOT Servo Configuration
+
+| Parameter        | Default Value        | Description                    | Valid Range / Notes                                             |
+|------------------|----------------------|--------------------------------|-----------------------------------------------------------------|
+| NUM_SERVOS       | 6                    | Number of servo motors         | 6 (fixed for DOFBOT)                                            |
+| Servo IDs        | 1–6                  | Servo identification           | 1: Base, 2: Shoulder, 3: Elbow, 4: Wrist, 5: Rotate, 6: Gripper |
+| Servo Range      | 0–180°               | Servo movement range           | 0–180 degrees                                                   |
+| Servo Reversal   | Servo 6 reversed     | Gripper direction reversed     | 0° = Open, 180° = Closed                                        |
+
+## Servo Speed Parameter
+| Parameter       | Default Value | Description               | Performance Impact                  |
+|-----------------|---------------|---------------------------|-------------------------------------|
+| MOVE_SPEED      | 900           | Normal movement speed     | Higher = slower movement            |
+| PATROL_SPEED    | 900           | Patrol movement speed     | Faster slot-to-slot movement        |
+| SAFE_LEVEL_SPEED| 1000          | Safe position movement    | Slow, careful movement              |
+| GRAB_SPEED      | 1000          | Grabbing motion speed     | Very slow for precision             |
+| DELIVERY_SPEED  | 1500          | Delivery movement         | Slowest for safety                  |
+
+## Audio System Configuration
+
+| Parameter             | Value             | Description                     | Impact on Performance                          |
+|-----------------------|-------------------|---------------------------------|------------------------------------------------|
+| Frequency             | 22050 Hz          | Audio sample rate               | Lower = less CPU, lower quality                |
+| Size                  | -16               | Bit depth (16-bit signed)       | Standard CD quality                            |
+| Channels              | 2                 | Stereo audio                    | Spatial sound capability                       |
+| Buffer Size           | 1024              | Audio buffer size               | Smaller = lower latency, more CPU              |
+| Audio System Status   | audio_initialized | Boolean flag                    | Enables/disables all audio                     |
+
+### Sound File Mapping
+| Sound Key         | File Names                               | Volume Type |
+|-------------------|------------------------------------------|-------------|
+| greeting          | greetings.wav                            | greeting    |
+| background_music  | background_music.mp3                     | background  |
+| Anchovy Special   | anchovy.wav                              | menu        |
+| Pesto Chicken     | pesto.wav                                | menu        | 
+| Ocean Garden      | ocean_garden.wav                         | menu        | 
+| Chicken Supreme   | chicken_supreme.wav                      | menu        | 
+| Margherita        | margherita.wav                           | menu        | 
+| Seafood Delight   | seafood.wav                              | menu        |
+| found_cube        | found.wav                                | found       | 
+| drop_cube         | delivery_done.wav, delivery_done_2.wav   | delivery    |
+| error             | error_1.wav                              | error       | 
+
+## AprilTag Detector Configuration
+| Parameter          | Value                  | Description                  | Impact on Performance            |
+|--------------------|------------------------|------------------------------|----------------------------------|
+| Tag Family         | tag36h11               | AprilTag family              | Standard library                 |
+| Threads            | nthreads=4             | Parallel processing          | Faster detection                 |
+| Decimation         | quad_decimate=2.0      | Image downscaling            | Faster, less accurate            |
+| Edge Refinement    | refine_edges=1         | Edge improvement             | More accurate corners            |
+| Sharpening         | decode_sharpening=0.25 | Image sharpening             | Better decoding                  |
+
 
 ## Configuration
 
